@@ -2,5 +2,5 @@ aws/
 local/
 package/
 __pycache__
-*.__pycache__
+*.pyc
 config.yml
