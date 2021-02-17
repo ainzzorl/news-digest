@@ -3,9 +3,11 @@ from handler import mail_digest
 
 import sys
 
+
 def lambda_handler(event, context):
     digest = gen_digest()
     mail_digest(digest)
+
 
 if __name__ == "__main__":
     if 'gen' in sys.argv:
@@ -14,7 +16,7 @@ if __name__ == "__main__":
     else:
         print('Using dummy digest')
         digest = 'Dummy digest'
-    
+
     print(digest)
 
     if 'mail' in sys.argv:
