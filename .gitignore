@@ -1,0 +1,6 @@
+aws/
+local/
+package/
+__pycache__
+*.__pycache__
+config.yml
