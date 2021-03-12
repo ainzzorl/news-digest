@@ -27,7 +27,8 @@ if __name__ == "__main__":
             print(exc)
             exit(1)
 
-    flow = InstalledAppFlow.from_client_secrets_file('local/credentials.json', SCOPES)
+    flow = InstalledAppFlow.from_client_secrets_file('local/credentials.json',
+                                                     SCOPES)
     creds = flow.run_local_server(port=0)
     print("Refresh token:")
     print(creds.refresh_token)

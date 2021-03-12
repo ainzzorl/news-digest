@@ -22,11 +22,18 @@ ITEM_SEPARATOR = "*" * 80 + "\n\n"
 
 
 def get_subreddits(session, config):
-    subs = list(session.user.subreddits(limit=None))
-    subs = [
-        subreddit for subreddit in subs
-        if subreddit.display_name not in config['exclude']
-    ]
+    # TODO: make configurable
+    #isweek = datetime.now().weekday() == 5 # Saturday
+    isweek = True
+
+    subs = []
+    for subreddit in list(session.user.subreddits(limit=None)):
+        if subreddit.display_name in config['exclude']:
+            continue
+        if get_frequency(config,
+                         subreddit.display_name) == 'week' and not isweek:
+            continue
+        subs.append(subreddit)
     return subs
 
 
@@ -38,20 +45,40 @@ def gen_submission_digest(config, subreddit, submission):
     return digest
 
 
-def gen_subreddit_digest(session, config, subreddit):
-    submissions = session.subreddit(subreddit.display_name).top("day")
+def get_frequency(config, subreddit_name):
+    if subreddit_name in config['overrides'] and 'frequency' in config[
+            'overrides'][subreddit_name]:
+        return config['overrides'][subreddit_name]['frequency']
+    return config['frequency']
 
+
+def gen_subreddit_digest(session, config, subreddit):
+    frequency = get_frequency(config, subreddit.display_name)
+    submissions = session.subreddit(subreddit.display_name).top(frequency)
+
+    if frequency == 'day':
+        max_time_diff = 86400 * 2
+    elif frequency == 'week':
+        max_time_diff = 86400 * 7 * 2
+    else:
+        print(f"Unknown frequency: {frequency}")
+        exit(1)
     submissions = [
         s for s in submissions
         if (datetime.now() - datetime.utcfromtimestamp(s.created_utc)
-            ).total_seconds() <= CONFIG['max_time_diff_seconds']
+            ).total_seconds() <= max_time_diff
     ]
+
     submissions = submissions[:config['submissions_per_subreddit']]
 
     if not submissions:
         return None
 
-    digest = f"## /r/{subreddit.display_name}\n\n"
+    if frequency == 'day':
+        frequency_readable = 'daily'
+    else:
+        frequency_readable = f'{frequency}ly'
+    digest = f"## /r/{subreddit.display_name} ({frequency_readable})\n\n"
 
     digest += "\n".join(
         [gen_submission_digest(config, subreddit, s) for s in submissions])
