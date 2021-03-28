@@ -40,7 +40,7 @@ def gen_submission_digest(config, subreddit, submission):
     digest = f"{submission.title} (score: {submission.score})\n"
     if subreddit.display_name in config['showself'] and submission.is_self:
         digest += submission.selftext + "\n"
-    digest += f"{submission.url}\nhttps://www.reddit.com{submission.permalink}\n"
+    digest += f"{submission.url}\nhttps://old.reddit.com{submission.permalink}\n"
     return digest
 
 
