@@ -110,7 +110,8 @@ def gen_rss_digest(config):
     feed = feedparser.parse(config['url'])
     print(feed.feed)
     items = feed.entries
-    print(items[0])
+    if items:
+        print(items[0])
     items = [
         item for item in items
         if ('published_parsed' in item and
