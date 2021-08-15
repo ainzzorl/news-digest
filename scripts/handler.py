@@ -5,16 +5,7 @@ from time import mktime
 import html2text
 import re
 import smtplib
-from email.message import EmailMessage
 import ssl
-import os
-from googleapiclient.discovery import build
-from googleapiclient import errors, discovery
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from oauth2client import client, tools, file
-import base64
-import httplib2
 import praw
 
 CONFIG = None
@@ -171,31 +162,8 @@ def gen_digest():
 def mail_digest(digest):
     load_config()
 
-    client_id = CONFIG['mail']['gmail']['client_id']
-    client_secret = CONFIG['mail']['gmail']['client_secret']
-    refresh_token = CONFIG['mail']['gmail']['refresh_token']
-    credentials = client.GoogleCredentials(
-        None, client_id, client_secret, refresh_token, None,
-        "https://accounts.google.com/o/oauth2/token", 'my-user-agent')
-
-    http = credentials.authorize(httplib2.Http())
-    service = discovery.build('gmail', 'v1', http=http, cache_discovery=False)
-    msg = EmailMessage()
-    msg['Subject'] = 'News Digest'
-    msg['To'] = CONFIG['mail']['to']
-    msg['From'] = CONFIG['mail']['from']
-    msg.set_content(digest)
-
-    msg_to_send = {
-        'raw':
-        base64.urlsafe_b64encode(
-            msg.as_string().encode('UTF-8')).decode('ascii')
-    }
-
-    try:
-        message = (service.users().messages().send(userId='me',
-                                                   body=msg_to_send).execute())
-        print('Message Id: %s' % message['id'])
-    except errors.HttpError as error:
-        print('An error occurred: %s' % error)
-        exit(1)
+    ssl_context = ssl.create_default_context()
+    service = smtplib.SMTP_SSL(CONFIG['mail']['smtp']['address'], int(CONFIG['mail']['smtp']['port']), context=ssl_context)
+    service.login(CONFIG['mail']['smtp']['user'], CONFIG['mail']['smtp']['password'])
+    body = f"Subject: News Digest\n{digest}"
+    service.sendmail(CONFIG['mail']['from'], CONFIG['mail']['to'], body.encode('utf-8'))
