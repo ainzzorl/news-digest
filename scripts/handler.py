@@ -11,6 +11,7 @@ import json
 import urllib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import time
 
 CONFIG = None
 ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
@@ -18,7 +19,8 @@ ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
 
 def get_subreddits(session, config):
     # TODO: make configurable
-    isweek = datetime.now().weekday() == 5 # Saturday
+    #isweek = datetime.now().weekday() == 5 # Saturday
+    isweek = True # TODO
 
     subs = []
     for subreddit in list(session.user.subreddits(limit=None)):
@@ -30,33 +32,67 @@ def get_subreddits(session, config):
         subs.append(subreddit)
     return subs
 
-
+# TODO: if submission url == permalink: dedupe
 def gen_submission_digest(config, subreddit, submission):
     digest = f"{submission.title} (score: {submission.score})\n<br>"
     if subreddit.display_name in config['showself'] and submission.is_self:
         digest += submission.selftext + "\n<br>"
+    digest += f"<a href='https://old.reddit.com{submission.permalink}'>https://old.reddit.com{submission.permalink}</a>\n<br>"
+
+    if submission.url.startswith('https://www.reddit.com/gallery/'):
+        images = get_reddit_gallery_urls(f'https://www.reddit.com{submission.permalink}')
+        if images is not None:
+            as_images = 5
+            for image in images[:as_images]:
+                digest += f"<img src='{image}'/>\n<br>"
+            if len(images) > as_images:
+                for image in images[as_images:]:
+                    digest += f"<a href='{image}'>{image}</a>\n<br>"
+            return digest
+
+    if submission.url.endswith(('jpg', 'jpeg', 'png', 'gif')):
+        digest += f"<img src='{submission.url}'/>\n<br>"
+        return digest
+
     url = submission.url
     if submission.url.startswith('https://v.redd.it/'):
         video_url, _height, _width = get_vreddit(f'https://www.reddit.com{submission.permalink}')
-        url = video_url
+        if video_url is not None:
+            url = video_url
     digest += f"<a href='{url}'>{url}</a>\n<br>"
-    digest += f"<a href='https://old.reddit.com{submission.permalink}'>https://old.reddit.com{submission.permalink}</a>\n<br>"
-    if submission.url.endswith(('jpg', 'jpeg', 'png', 'gif')):
-        digest += f"<img src='{submission.url}'/>\n<br>"
     return digest
 
+# TODO: handle links to other subreddits
 def get_vreddit(submission_url):
     try:
-        with urllib.request.urlopen(submission_url + '.json') as url:
-            data = json.loads(url.read().decode())
-            # print("###")
-            # print(data)
-            v = data[0]['data']['children'][0]['data']['secure_media']['reddit_video']
-            return (v['fallback_url'], v['height'], v['width'])
+        data = fetch_reddit_json(submission_url)
+        # print("###")
+        # print(data)
+        v = data[0]['data']['children'][0]['data']['secure_media']['reddit_video']
+        return (v['fallback_url'], v['height'], v['width'])
     except Exception as e:
         print(f"Failed to fetch video vreddit url for {submission_url}")
         print(e)
         return (None, None, None)
+
+def get_reddit_gallery_urls(submission_url):
+    try:
+        data = fetch_reddit_json(submission_url)
+        media_metadata = data[0]['data']['children'][0]['data']['media_metadata']
+        result = []
+        for _k, media in media_metadata.items():
+            img = media['p'][-1]
+            result.append(img['u'].replace('&amp;', '&'))
+        return result
+    except Exception as e:
+        print(f"Failed to fetch gallery images for {submission_url}")
+        print(e)
+        return None
+
+def fetch_reddit_json(url):
+    time.sleep(0.5)
+    with urllib.request.urlopen(url + '.json') as url:
+        return json.loads(url.read().decode())
 
 def get_frequency(config, subreddit_name):
     if subreddit_name in config['overrides'] and 'frequency' in config[
