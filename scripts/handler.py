@@ -118,7 +118,7 @@ def gen_rss_digest(config):
 
     stories = [
         f"{item.title}\n" + f"{item.link}\n" + f"{item.published}\n" +
-        f"{h.handle(item.description).strip()}" for item in items
+        f"{process_rss_description(item.description, h)}" for item in items
     ]
     stories = [
         re.sub(
@@ -129,6 +129,13 @@ def gen_rss_digest(config):
 
     return digest
 
+def process_rss_description(description, h):
+    result = description
+    result = h.handle(result)
+    result = re.sub(r'ДАННОЕ\s*СООБЩЕНИЕ\s*\(МАТЕРИАЛ\)\s*СОЗДАНО\s*И\s*\(ИЛИ\)\s*РАСПРОСТРАНЕНО\s*ИНОСТРАННЫМ\s*СРЕДСТВОМ\s*МАССОВОЙ\s*ИНФОРМАЦИИ,\s*ВЫПОЛНЯЮЩИМ\s*ФУНКЦИИ\sИНОСТРАННОГО\sАГЕНТА, И\s\(ИЛИ\)\sРОССИЙСКИМ\sЮРИДИЧЕСКИМ ЛИЦОМ,\sВЫПОЛНЯЮЩИМ\sФУНКЦИИ\sИНОСТРАННОГО\sАГЕНТА.', '', result)
+    result = re.sub(r'Спасите «Медузу»!\s+https:\/\/support\.meduza\.io', '', result)
+    result = result.strip()
+    return result
 
 def gen_source_digest(config):
     print(f"Generating source digest, config: {config}")
