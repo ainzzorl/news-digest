@@ -163,7 +163,7 @@ def process_rss_description(description):
     result = description
     #result = h.handle(result)
     result = re.sub(r'ДАННОЕ\s*СООБЩЕНИЕ\s*\(МАТЕРИАЛ\)\s*СОЗДАНО\s*И\s*\(ИЛИ\)\s*РАСПРОСТРАНЕНО\s*ИНОСТРАННЫМ\s*СРЕДСТВОМ\s*МАССОВОЙ\s*ИНФОРМАЦИИ,\s*ВЫПОЛНЯЮЩИМ\s*ФУНКЦИИ\sИНОСТРАННОГО\sАГЕНТА, И\s\(ИЛИ\)\sРОССИЙСКИМ\sЮРИДИЧЕСКИМ ЛИЦОМ,\sВЫПОЛНЯЮЩИМ\sФУНКЦИИ\sИНОСТРАННОГО\sАГЕНТА.', '', result)
-    result = re.sub(r'Спасите «Медузу»!\s+https:\/\/support\.meduza\.io', '', result)
+    result = re.sub(r'Спасите «Медузу»!.*https:\/\/support\.meduza\.io', '', result)
     result = result.strip()
     return result
 
