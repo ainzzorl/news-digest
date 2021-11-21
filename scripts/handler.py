@@ -19,8 +19,7 @@ ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
 
 def get_subreddits(session, config):
     # TODO: make configurable
-    #isweek = datetime.now().weekday() == 5 # Saturday
-    isweek = True # TODO
+    isweek = datetime.now().weekday() == 5 # Saturday
 
     subs = []
     for subreddit in list(session.user.subreddits(limit=None)):
