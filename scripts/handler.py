@@ -32,7 +32,6 @@ def get_subreddits(session, config):
         subs.append(subreddit)
     return subs
 
-# TODO: if submission url == permalink: dedupe
 def gen_submission_digest(config, subreddit, submission):
     digest = f"{submission.title} (score: {submission.score})\n<br>"
     if subreddit.display_name in config['showself'] and submission.is_self:
@@ -42,7 +41,9 @@ def gen_submission_digest(config, subreddit, submission):
     if submission.is_self:
         return digest
 
-    if submission.url.startswith('https://www.reddit.com/gallery/'):
+    is_crosspost = hasattr(submission, "crosspost_parent")
+
+    if not is_crosspost and submission.url.startswith('https://www.reddit.com/gallery/'):
         images = get_reddit_gallery_urls(f'https://www.reddit.com{submission.permalink}')
         if images is not None:
             as_images = 5
@@ -58,14 +59,13 @@ def gen_submission_digest(config, subreddit, submission):
         return digest
 
     url = submission.url
-    if submission.url.startswith('https://v.redd.it/'):
+    if not is_crosspost and submission.url.startswith('https://v.redd.it/'):
         video_url, _height, _width = get_vreddit(f'https://www.reddit.com{submission.permalink}')
         if video_url is not None:
             url = video_url
     digest += f"<a href='{url}'>{url}</a>\n<br>"
     return digest
 
-# TODO: handle links to other subreddits
 def get_vreddit(submission_url):
     try:
         data = fetch_reddit_json(submission_url)
