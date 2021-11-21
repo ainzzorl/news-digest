@@ -15,7 +15,17 @@ if __name__ == "__main__":
         digest = gen_digest()
     else:
         print('Using dummy digest')
-        digest = 'Dummy digest'
+        digest = """\
+<html>
+  <head></head>
+  <body>
+    <p>Hi!<br>
+       How are <b>you</b>?<br>
+       Here is the <a href="http://www.python.org">link</a> you wanted.
+    </p>
+  </body>
+</html>
+"""
 
     print(digest)
 
