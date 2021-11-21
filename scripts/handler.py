@@ -39,6 +39,9 @@ def gen_submission_digest(config, subreddit, submission):
         digest += submission.selftext + "\n<br>"
     digest += f"<a href='https://old.reddit.com{submission.permalink}'>https://old.reddit.com{submission.permalink}</a>\n<br>"
 
+    if submission.is_self:
+        return digest
+
     if submission.url.startswith('https://www.reddit.com/gallery/'):
         images = get_reddit_gallery_urls(f'https://www.reddit.com{submission.permalink}')
         if images is not None:
