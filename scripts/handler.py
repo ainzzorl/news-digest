@@ -93,7 +93,7 @@ def get_reddit_gallery_urls(submission_url):
         return None
 
 def fetch_reddit_json(url):
-    time.sleep(0.5)
+    time.sleep(1)
     with urllib.request.urlopen(url + '.json') as url:
         return json.loads(url.read().decode())
 
