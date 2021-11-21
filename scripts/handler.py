@@ -152,7 +152,12 @@ def gen_rss_digest(config):
     return digest
 
 def rss_story_to_html(item):
-    return f"{item.title}\n<br>" + f"<a href='{item.link}'>{item.link}</a>\n<br>" + f"{item.published}\n<br>" + f"{process_rss_description(item.description)}"
+    result = f"{item.title}\n<br>" + f"<a href='{item.link}'>{item.link}</a>\n<br>" + f"{item.published}\n<br>" + f"{process_rss_description(item.description)}"
+    for link in item.links:
+        if link.type.startswith('image/'):
+            image_url = link.href
+            result += f"<img src='{image_url}'/>\n<br>"
+    return result
 
 def process_rss_description(description):
     result = description
