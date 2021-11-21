@@ -35,16 +35,14 @@ def gen_submission_digest(config, subreddit, submission):
     digest = f"{submission.title} (score: {submission.score})\n<br>"
     if subreddit.display_name in config['showself'] and submission.is_self:
         digest += submission.selftext + "\n<br>"
-    digest += f"<a href='{submission.url}'>{submission.url}</a>\n<br>"
+    url = submission.url
+    if submission.url.startswith('https://v.redd.it/'):
+        video_url, _height, _width = get_vreddit(f'https://www.reddit.com{submission.permalink}')
+        url = video_url
+    digest += f"<a href='{url}'>{url}</a>\n<br>"
     digest += f"<a href='https://old.reddit.com{submission.permalink}'>https://old.reddit.com{submission.permalink}</a>\n<br>"
     if submission.url.endswith(('jpg', 'jpeg', 'png', 'gif')):
         digest += f"<img src='{submission.url}'/>\n<br>"
-    # if submission.url.startswith('https://v.redd.it/'):
-    #     video_url, height, width = get_vreddit(f'https://www.reddit.com{submission.permalink}')
-    #     if video_url is not None:
-    #         digest += f"""<video style='height: 100vh; width: 100%; object-fit: fill position: absolute;' controls>
-    #         <source src='{video_url}'/>
-    #         </video>"""
     return digest
 
 def get_vreddit(submission_url):
