@@ -130,6 +130,7 @@ def gen_subreddit_digest(session, config, subreddit):
         frequency_readable = 'daily'
     else:
         frequency_readable = f'{frequency}ly'
+    print(f"Generating subreddit digest for {subreddit.display_name}")
     digest = f"<h4>/r/{subreddit.display_name} ({frequency_readable})</h4>"
 
     digest += "\n<br>".join(
@@ -161,7 +162,7 @@ def gen_reddit_digest(config):
 
 def gen_rss_digest(config):
     feed = feedparser.parse(config['url'])
-    #print(feed.feed)
+    print(feed.feed)
     items = feed.entries
     # if items:
     #     print(items[0])
@@ -205,7 +206,7 @@ def process_rss_description(description):
     return result
 
 def gen_source_digest(config):
-    #print(f"Generating source digest, config: {config}")
+    print(f"Generating source digest, config: {config}")
     if config['type'] == 'rss':
         return gen_rss_digest(config)
     elif config['type'] == 'reddit':
