@@ -2,7 +2,6 @@ import yaml
 import feedparser
 from datetime import datetime
 from time import mktime
-import html2text
 import re
 import smtplib
 import ssl
@@ -43,7 +42,7 @@ def gen_submission_digest(config, subreddit, submission):
     is_crosspost = hasattr(submission, "crosspost_parent")
 
     if not is_crosspost and submission.url.startswith('https://www.reddit.com/gallery/'):
-        images = get_reddit_gallery_urls(f'https://www.reddit.com{submission.permalink}')
+        images = get_reddit_gallery_urls(submission)
         if images is not None:
             as_images = 5
             for image in images[:as_images]:
@@ -59,42 +58,32 @@ def gen_submission_digest(config, subreddit, submission):
 
     url = submission.url
     if not is_crosspost and submission.url.startswith('https://v.redd.it/'):
-        video_url, _height, _width = get_vreddit(f'https://www.reddit.com{submission.permalink}')
+        video_url = get_vreddit(submission)
         if video_url is not None:
             url = video_url
     digest += f"<a href='{url}'>{url}</a>\n<br>"
     return digest
 
-def get_vreddit(submission_url):
+def get_vreddit(submission):
     try:
-        data = fetch_reddit_json(submission_url)
-        # print("###")
-        # print(data)
-        v = data[0]['data']['children'][0]['data']['secure_media']['reddit_video']
-        return (v['fallback_url'], v['height'], v['width'])
+        return submission.secure_media['reddit_video']['fallback_url']
     except Exception as e:
-        print(f"Failed to fetch video vreddit url for {submission_url}")
+        print(f"Failed to fetch video vreddit url for {submission}")
         print(e)
-        return (None, None, None)
+        return None
 
-def get_reddit_gallery_urls(submission_url):
+def get_reddit_gallery_urls(submission):
     try:
-        data = fetch_reddit_json(submission_url)
-        media_metadata = data[0]['data']['children'][0]['data']['media_metadata']
+        media_metadata = submission.media_metadata
         result = []
         for _k, media in media_metadata.items():
             img = media['p'][-1]
             result.append(img['u'].replace('&amp;', '&'))
         return result
     except Exception as e:
-        print(f"Failed to fetch gallery images for {submission_url}")
+        print(f"Failed to fetch gallery images for {submission}")
         print(e)
         return None
-
-def fetch_reddit_json(url):
-    time.sleep(1)
-    with urllib.request.urlopen(url + '.json') as url:
-        return json.loads(url.read().decode())
 
 def get_frequency(config, subreddit_name):
     if subreddit_name in config['overrides'] and 'frequency' in config[
