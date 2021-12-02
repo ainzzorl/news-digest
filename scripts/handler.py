@@ -168,7 +168,7 @@ def gen_rss_digest(config):
              ).total_seconds() <= CONFIG['max_time_diff_seconds'])
     ]
 
-    digest = f"<h2>{feed.feed.title} ({len(items)} item(s))</h2>\n\n"
+    digest = f"<h2>{config['name']} ({len(items)} item(s))</h2>\n\n"
 
     # h = html2text.HTML2Text()
     # h.ignore_links = True
