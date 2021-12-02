@@ -39,9 +39,7 @@ def gen_submission_digest(config, subreddit, submission):
     if submission.is_self:
         return digest
 
-    is_crosspost = hasattr(submission, "crosspost_parent")
-
-    if not is_crosspost and submission.url.startswith('https://www.reddit.com/gallery/'):
+    if submission.url.startswith('https://www.reddit.com/gallery/'):
         images = get_reddit_gallery_urls(submission)
         if images is not None:
             as_images = 5
@@ -57,7 +55,7 @@ def gen_submission_digest(config, subreddit, submission):
         return digest
 
     url = submission.url
-    if not is_crosspost and submission.url.startswith('https://v.redd.it/'):
+    if submission.url.startswith('https://v.redd.it/'):
         video_url = get_vreddit(submission)
         if video_url is not None:
             url = video_url
@@ -66,7 +64,11 @@ def gen_submission_digest(config, subreddit, submission):
 
 def get_vreddit(submission):
     try:
-        return submission.secure_media['reddit_video']['fallback_url']
+        if hasattr(submission, "crosspost_parent"):
+            secure_media = submission.crosspost_parent_list[0]['secure_media']
+        else:
+            secure_media = submission.secure_media
+        return secure_media['reddit_video']['fallback_url']
     except Exception as e:
         print(f"Failed to fetch video vreddit url for {submission}")
         print(e)
@@ -74,6 +76,10 @@ def get_vreddit(submission):
 
 def get_reddit_gallery_urls(submission):
     try:
+        if hasattr(submission, "crosspost_parent"):
+            media_metadata = submission.crosspost_parent_list[0]['media_metadata']
+        else:
+            media_metadata = submission.media_metadata
         media_metadata = submission.media_metadata
         result = []
         for _k, media in media_metadata.items():
