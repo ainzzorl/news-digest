@@ -6,11 +6,8 @@ import re
 import smtplib
 import ssl
 import praw
-import json
-import urllib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import time
 
 CONFIG = None
 ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
@@ -27,12 +24,19 @@ def get_subreddits(session, config):
         if get_frequency(config,
                          subreddit.display_name) == 'week' and not isweek:
             continue
-        subs.append(subreddit)
+        subs.append(subreddit.display_name)
+
+    if 'extra' in config:
+        print(config['extra'])
+        for subreddit_name, c in config['extra'].items():
+            if c['frequency'] == 'day' or isweek:
+                subs.append(subreddit_name)
+
     return subs
 
-def gen_submission_digest(config, subreddit, submission):
+def gen_submission_digest(config, subreddit_name, submission):
     digest = f"{submission.title} (score: {submission.score})\n<br>"
-    if subreddit.display_name in config['showself'] and submission.is_self:
+    if subreddit_name in config['showself'] and submission.is_self:
         digest += submission.selftext + "\n<br>"
     digest += f"<a href='https://old.reddit.com{submission.permalink}'>https://old.reddit.com{submission.permalink}</a>\n<br>"
 
@@ -98,9 +102,9 @@ def get_frequency(config, subreddit_name):
     return config['frequency']
 
 
-def gen_subreddit_digest(session, config, subreddit):
-    frequency = get_frequency(config, subreddit.display_name)
-    submissions = session.subreddit(subreddit.display_name).top(frequency)
+def gen_subreddit_digest(session, config, subreddit_name):
+    frequency = get_frequency(config, subreddit_name)
+    submissions = session.subreddit(subreddit_name).top(frequency)
 
     if frequency == 'day':
         max_time_diff = 86400 * 2
@@ -124,11 +128,11 @@ def gen_subreddit_digest(session, config, subreddit):
         frequency_readable = 'daily'
     else:
         frequency_readable = f'{frequency}ly'
-    print(f"Generating subreddit digest for {subreddit.display_name}")
-    digest = f"<h4>/r/{subreddit.display_name} ({frequency_readable})</h4>"
+    print(f"Generating subreddit digest for {subreddit_name}")
+    digest = f"<h4>/r/{subreddit_name} ({frequency_readable})</h4>"
 
     digest += "\n<br>".join(
-        [gen_submission_digest(config, subreddit, s) for s in submissions])
+        [gen_submission_digest(config, subreddit_name, s) for s in submissions])
 
     return digest
 
