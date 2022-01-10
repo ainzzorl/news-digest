@@ -181,7 +181,7 @@ def gen_rss_digest(config):
     stories = [
         re.sub(
             '!\[\]\(http://feeds\.feedburner.com\/~[\s\S]*\/rss\/cnn_topstories.*\)',
-            '', story).strip() + "\n" for story in stories
+            '', story).strip() + "\n<br>" for story in stories
     ]
     digest += "\n" + ITEM_SEPARATOR.join(stories)
 
@@ -189,11 +189,8 @@ def gen_rss_digest(config):
 
 def rss_story_to_html(item):
     result = f"{item.title}\n<br>" + f"<a href='{item.link}'>{item.link}</a>\n<br>" + f"{item.published}\n<br>" + f"{process_rss_description(item.description)}"
-    for link in item.links:
-        if link.type.startswith('image/'):
-            image_url = link.href
-            result += f"<img src='{image_url}'/>\n<br>"
-    return result
+    image_urls = '\n<br>'.join([f"<img src='{link.href}'/>" for link in item.links if link.type.startswith('image/')])
+    return result + image_urls
 
 def process_rss_description(description):
     result = description
