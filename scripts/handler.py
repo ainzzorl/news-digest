@@ -8,6 +8,9 @@ import ssl
 import praw
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from telethon.sync import TelegramClient
+from telethon.tl.functions.messages import GetHistoryRequest, GetAllChatsRequest
+import shutil
 
 CONFIG = None
 ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
@@ -200,12 +203,61 @@ def process_rss_description(description):
     result = result.strip()
     return result
 
+def gen_telegram_digest(config):
+    # TODO: pull from S3 or somewhere
+    res = ''
+    res += '<h2>Telegram</h2><br>'
+
+    shutil.copyfile('session_name.session', '/tmp/session_name.session')
+
+    with TelegramClient('/tmp/session_name.session', config['api_id'], config['api_hash']) as client:
+        my_chats = client(GetAllChatsRequest(except_ids=config['except_chat_ids'])).chats
+        for chat in my_chats:
+            channel_entity=client.get_entity(chat.id)
+            print(f"Processing chat: {channel_entity.title}")
+            # print(channel_entity)
+            posts = client(GetHistoryRequest(
+                peer=channel_entity,
+                limit=10,
+                offset_date=None,
+                offset_id=0,
+                max_id=0,
+                min_id=0,
+                add_offset=0,
+                hash=0))
+            posts_str = ''
+            total_posts = 0
+            for post in posts.messages:
+                # if post.message is None:
+                #     print("### None")
+                #     print(post)
+                ago = datetime.now().astimezone() - post.date
+                if ago.days >= 1:
+                    break
+                total_posts += 1
+                posts_str += f"<b>{str(post.date)}</b>" + "<br>\n"
+                if hasattr(channel_entity, 'username'):
+                    usr = channel_entity.username
+                    url = "https://t.me/" + str(usr) + "/" + str(post.id)
+                    posts_str += f'<a href="{url}">{url}</a><br>\n'
+                posts_str += str(post.message) + "<br>\n"
+                posts_str += "<br>\n"
+            if total_posts == 0:
+                print(f'Chat with no messages: {channel_entity.title}, id={channel_entity.id}.')
+            else:
+                res += f'<h4>{channel_entity.title} ({total_posts} item(s), id={channel_entity.id})</h4><br>'
+                res += posts_str
+
+    return res
+
 def gen_source_digest(config):
     print(f"Generating source digest, config: {config}")
     if config['type'] == 'rss':
         return gen_rss_digest(config)
     elif config['type'] == 'reddit':
         return gen_reddit_digest(config)
+    elif config['type'] == 'telegram':
+        return gen_telegram_digest(config)
     else:
         raise f"Unknown type: {config['type']}"
 

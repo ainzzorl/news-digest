@@ -4,3 +4,4 @@ package/
 __pycache__
 *.pyc
 config.yml
+session_name.session
