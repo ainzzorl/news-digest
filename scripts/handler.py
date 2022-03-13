@@ -236,7 +236,7 @@ def gen_telegram_digest(config):
                     break
                 total_posts += 1
                 posts_str += f"<b>{str(post.date)}</b>" + "<br>\n"
-                if hasattr(channel_entity, 'username'):
+                if hasattr(channel_entity, 'username') and channel_entity.username is not None:
                     usr = channel_entity.username
                     url = "https://t.me/" + str(usr) + "/" + str(post.id)
                     posts_str += f'<a href="{url}">{url}</a><br>\n'
