@@ -245,7 +245,7 @@ def gen_telegram_digest(config):
             if total_posts == 0:
                 print(f'Chat with no messages: {channel_entity.title}, id={channel_entity.id}.')
             else:
-                res += f'<h4>{channel_entity.title} ({total_posts} item(s), id={channel_entity.id})</h4><br>'
+                res += f'<h4>{channel_entity.title} ({total_posts} item(s), id={channel_entity.id})</h4>'
                 res += posts_str
 
     return res
