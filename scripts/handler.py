@@ -218,7 +218,7 @@ def gen_telegram_digest(config):
             # print(channel_entity)
             posts = client(GetHistoryRequest(
                 peer=channel_entity,
-                limit=10,
+                limit=50,
                 offset_date=None,
                 offset_id=0,
                 max_id=0,
