@@ -227,7 +227,7 @@ def gen_telegram_digest(config):
                 hash=0))
             posts_str = ''
             total_posts = 0
-            for post in posts.messages:
+            for post in posts.messages.reverse():
                 # if post.message is None:
                 #     print("### None")
                 #     print(post)
