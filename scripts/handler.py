@@ -233,7 +233,7 @@ def gen_telegram_digest(config):
                 #     print(post)
                 ago = datetime.now().astimezone() - post.date
                 if ago.days >= 1:
-                    break
+                    continue
                 total_posts += 1
                 posts_str += f"<b>{str(post.date)}</b>" + "<br>\n"
                 if hasattr(channel_entity, 'username') and channel_entity.username is not None:
