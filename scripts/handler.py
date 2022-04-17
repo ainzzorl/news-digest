@@ -227,14 +227,19 @@ def gen_telegram_digest(config):
                 hash=0))
             posts_str = ''
             total_posts = 0
-            for post in posts.messages[::-1]:
+
+            selected_posts = []
+            for post in posts.messages:
                 # if post.message is None:
                 #     print("### None")
                 #     print(post)
                 ago = datetime.now().astimezone() - post.date
                 if ago.days >= 1:
-                    continue
+                    break
                 total_posts += 1
+                selected_posts.append(post)
+
+            for post in selected_posts[::-1]:
                 posts_str += f"<b>{str(post.date)}</b>" + "<br>\n"
                 if hasattr(channel_entity, 'username') and channel_entity.username is not None:
                     usr = channel_entity.username
@@ -242,6 +247,7 @@ def gen_telegram_digest(config):
                     posts_str += f'<a href="{url}">{url}</a><br>\n'
                 posts_str += str(post.message) + "<br>\n"
                 posts_str += "<br>\n"
+
             if total_posts == 0:
                 print(f'Chat with no messages: {channel_entity.title}, id={channel_entity.id}.')
             else:
