@@ -11,6 +11,8 @@ from email.mime.text import MIMEText
 from telethon.sync import TelegramClient
 from telethon.tl.functions.messages import GetHistoryRequest, GetAllChatsRequest
 import shutil
+import urllib.request
+import json
 
 CONFIG = None
 ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
@@ -195,6 +197,60 @@ def gen_rss_digest(config):
     return digest
 
 
+def gen_hn_digest(config):
+    feed = feedparser.parse(config['url'])
+    print(feed.feed)
+    items = feed.entries
+    items = [
+        item for item in items
+        if ('published_parsed' in item and
+            (datetime.now() -
+             datetime.fromtimestamp(mktime(item.published_parsed))
+             ).total_seconds() <= CONFIG['max_time_diff_seconds'])
+    ]
+
+    digest = f"<h2>{config['name']} ({len(items)} item(s))</h2>\n\n"
+
+    stories = [hn_item_to_html(config, item) for item in items]
+    stories = [
+        re.sub(
+            '!\[\]\(http://feeds\.feedburner.com\/~[\s\S]*\/rss\/cnn_topstories.*\)',
+            '', story).strip() + "\n<br>" for story in stories
+    ]
+    digest += "\n" + ITEM_SEPARATOR.join(stories)
+
+    return digest
+
+
+def hn_item_to_html(config, item):
+    result = f"{item.title}\n<br>" + f"<a href='{item.link}'>{item.link}</a>\n<br>" + \
+        f"{item.published}\n<br>" + \
+        f"{process_rss_description(item.description)}"
+    image_urls = '\n<br>'.join(
+        [f"<img src='{link.href}'/>" for link in item.links if link.type.startswith('image/')])
+    comments_url = item.comments
+    story_id = comments_url.replace(
+        'https://news.ycombinator.com/item?id=', '')
+
+    comments_html = 'Top comments:<br><br>\n'
+    try:
+        story_content = urllib.request.urlopen(
+            f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json").read()
+        story_json = json.loads(story_content)
+        per_comment_htmls = []
+        for comment_id in story_json['kids'][:config['top_comments']]:
+            comment_content = urllib.request.urlopen(
+                f"https://hacker-news.firebaseio.com/v0/item/{comment_id}.json").read()
+            comment_json = json.loads(comment_content)
+            per_comment_htmls.append(comment_json['text'])
+        comments_html += '<br><br>~~~~~~~~~~<br><br>\n'.join(per_comment_htmls)
+        comments_html += '<br>\n'
+
+    except Exception as e:
+        print(f'Error processing story {story_id}: {e}')
+    return result + image_urls + comments_html
+
+
 def rss_story_to_html(item):
     result = f"{item.title}\n<br>" + f"<a href='{item.link}'>{item.link}</a>\n<br>" + \
         f"{item.published}\n<br>" + \
@@ -278,6 +334,8 @@ def gen_source_digest(config):
         return gen_reddit_digest(config)
     elif config['type'] == 'telegram':
         return gen_telegram_digest(config)
+    elif config['type'] == 'hn':
+        return gen_hn_digest(config)
     else:
         raise f"Unknown type: {config['type']}"
 
