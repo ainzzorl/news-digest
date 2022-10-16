@@ -18,7 +18,7 @@ ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
 
 def get_subreddits(session, config):
     # TODO: make configurable
-    isweek = datetime.now().weekday() == 5 # Saturday
+    isweek = datetime.now().weekday() == 5  # Saturday
 
     subs = []
     for subreddit in list(session.user.subreddits(limit=None)):
@@ -36,6 +36,7 @@ def get_subreddits(session, config):
                 subs.append(subreddit_name)
 
     return subs
+
 
 def gen_submission_digest(config, subreddit_name, submission):
     digest = f"{submission.title} (score: {submission.score})\n<br>"
@@ -69,6 +70,7 @@ def gen_submission_digest(config, subreddit_name, submission):
     digest += f"<a href='{url}'>{url}</a>\n<br>"
     return digest
 
+
 def get_vreddit(submission):
     try:
         if hasattr(submission, "crosspost_parent"):
@@ -80,6 +82,7 @@ def get_vreddit(submission):
         print(f"Failed to fetch video vreddit url for {submission}")
         print(e)
         return None
+
 
 def get_reddit_gallery_urls(submission):
     try:
@@ -97,6 +100,7 @@ def get_reddit_gallery_urls(submission):
         print(f"Failed to fetch gallery images for {submission}")
         print(e)
         return None
+
 
 def get_frequency(config, subreddit_name):
     if subreddit_name in config['overrides'] and 'frequency' in config[
@@ -190,18 +194,25 @@ def gen_rss_digest(config):
 
     return digest
 
+
 def rss_story_to_html(item):
-    result = f"{item.title}\n<br>" + f"<a href='{item.link}'>{item.link}</a>\n<br>" + f"{item.published}\n<br>" + f"{process_rss_description(item.description)}"
-    image_urls = '\n<br>'.join([f"<img src='{link.href}'/>" for link in item.links if link.type.startswith('image/')])
+    result = f"{item.title}\n<br>" + f"<a href='{item.link}'>{item.link}</a>\n<br>" + \
+        f"{item.published}\n<br>" + \
+        f"{process_rss_description(item.description)}"
+    image_urls = '\n<br>'.join(
+        [f"<img src='{link.href}'/>" for link in item.links if link.type.startswith('image/')])
     return result + image_urls
+
 
 def process_rss_description(description):
     result = description
     #result = h.handle(result)
     result = re.sub(r'ДАННОЕ\s*СООБЩЕНИЕ\s*\(МАТЕРИАЛ\)\s*СОЗДАНО\s*И\s*\(ИЛИ\)\s*РАСПРОСТРАНЕНО\s*ИНОСТРАННЫМ\s*СРЕДСТВОМ\s*МАССОВОЙ\s*ИНФОРМАЦИИ,\s*ВЫПОЛНЯЮЩИМ\s*ФУНКЦИИ\sИНОСТРАННОГО\sАГЕНТА, И\s\(ИЛИ\)\sРОССИЙСКИМ\sЮРИДИЧЕСКИМ ЛИЦОМ,\sВЫПОЛНЯЮЩИМ\sФУНКЦИИ\sИНОСТРАННОГО\sАГЕНТА.', '', result)
-    result = re.sub(r'Спасите «Медузу»!.*https:\/\/support\.meduza\.io', '', result)
+    result = re.sub(
+        r'Спасите «Медузу»!.*https:\/\/support\.meduza\.io', '', result)
     result = result.strip()
     return result
+
 
 def gen_telegram_digest(config):
     # TODO: pull from S3 or somewhere
@@ -211,9 +222,10 @@ def gen_telegram_digest(config):
     shutil.copyfile('session_name.session', '/tmp/session_name.session')
 
     with TelegramClient('/tmp/session_name.session', config['api_id'], config['api_hash']) as client:
-        my_chats = client(GetAllChatsRequest(except_ids=config['except_chat_ids'])).chats
+        my_chats = client(GetAllChatsRequest(
+            except_ids=config['except_chat_ids'])).chats
         for chat in my_chats:
-            channel_entity=client.get_entity(chat.id)
+            channel_entity = client.get_entity(chat.id)
             print(f"Processing chat: {channel_entity.title}")
             # print(channel_entity)
             posts = client(GetHistoryRequest(
@@ -249,12 +261,14 @@ def gen_telegram_digest(config):
                 posts_str += "<br>\n"
 
             if total_posts == 0:
-                print(f'Chat with no messages: {channel_entity.title}, id={channel_entity.id}.')
+                print(
+                    f'Chat with no messages: {channel_entity.title}, id={channel_entity.id}.')
             else:
                 res += f'<h4>{channel_entity.title} ({total_posts} item(s), id={channel_entity.id})</h4>'
                 res += posts_str
 
     return res
+
 
 def gen_source_digest(config):
     print(f"Generating source digest, config: {config}")
@@ -274,7 +288,7 @@ def load_config():
         try:
             #print("Read config.yml")
             CONFIG = yaml.safe_load(stream)
-            #print(CONFIG)
+            # print(CONFIG)
         except yaml.YAMLError as exc:
             print("Failed to read config.yml")
             print(exc)
@@ -291,8 +305,10 @@ def mail_digest(digest):
     load_config()
 
     ssl_context = ssl.create_default_context()
-    service = smtplib.SMTP_SSL(CONFIG['mail']['smtp']['address'], int(CONFIG['mail']['smtp']['port']), context=ssl_context)
-    service.login(CONFIG['mail']['smtp']['user'], CONFIG['mail']['smtp']['password'])
+    service = smtplib.SMTP_SSL(CONFIG['mail']['smtp']['address'], int(
+        CONFIG['mail']['smtp']['port']), context=ssl_context)
+    service.login(CONFIG['mail']['smtp']['user'],
+                  CONFIG['mail']['smtp']['password'])
 
     msg = MIMEMultipart('alternative')
     msg['Subject'] = "News Digest"
@@ -301,4 +317,5 @@ def mail_digest(digest):
     part1 = MIMEText(digest, 'html')
     msg.attach(part1)
 
-    service.sendmail(CONFIG['mail']['from'], CONFIG['mail']['to'], msg.as_string().encode('utf-8'))
+    service.sendmail(CONFIG['mail']['from'], CONFIG['mail']
+                     ['to'], msg.as_string().encode('utf-8'))
