@@ -13,30 +13,61 @@ from telethon.tl.functions.messages import GetHistoryRequest, GetAllChatsRequest
 import shutil
 import urllib.request
 import json
+from calendar import monthrange
 
 CONFIG = None
 ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
 
 
 def get_subreddits(session, config):
-    # TODO: make configurable
-    isweek = datetime.now().weekday() == 5  # Saturday
+    day_of_week = datetime.now().weekday()
+    day_of_month = datetime.now().day - 1
+    _, days_in_month = monthrange(datetime.now().year, datetime.now().month)
 
-    subs = []
+    print(f'Day of week: {day_of_week}')
+    print(f'Day of month: {day_of_month}')
+    print(f'Days in this month: {days_in_month}')
+
+    weekly_count = 0
+    monthly_count = 0
+
+    sub_candidates = []
     for subreddit in list(session.user.subreddits(limit=None)):
         if subreddit.display_name in config['exclude']:
             continue
-        if get_frequency(config,
-                         subreddit.display_name) == 'week' and not isweek:
-            continue
-        subs.append(subreddit.display_name)
+        frequency = get_frequency(config,
+                                  subreddit.display_name)
+        sub_candidates.append((subreddit.display_name, frequency))
 
     if 'extra' in config:
-        print(config['extra'])
         for subreddit_name, c in config['extra'].items():
-            if c['frequency'] == 'day' or isweek:
-                subs.append(subreddit_name)
+            sub_candidates.append((subreddit_name, c['frequency']))
 
+    print('Sub candidates:')
+    print(sub_candidates)
+
+    subs = []
+    for subreddit_name, frequency in sub_candidates:
+        take = False
+
+        if frequency == 'day':
+            take = True
+
+        if frequency == 'week':
+            if weekly_count == day_of_week:
+                take = True
+            weekly_count = (weekly_count + 1) % 7
+
+        if frequency == 'month':
+            if monthly_count == day_of_month:
+                take = True
+            monthly_count = (monthly_count + 1) % days_in_month
+
+        if take:
+            subs.append(subreddit_name)
+            # print(f'Taking subreddit {subreddit_name}, frequency: {frequency}')
+
+    print(f'Selected subreddits: {subs}')
     return subs
 
 
@@ -119,6 +150,8 @@ def gen_subreddit_digest(session, config, subreddit_name):
         max_time_diff = 86400 * 2
     elif frequency == 'week':
         max_time_diff = 86400 * 7 * 2
+    elif frequency == 'month':
+        max_time_diff = 86400 * 31 * 2
     else:
         #print(f"Unknown frequency: {frequency}")
         exit(1)
