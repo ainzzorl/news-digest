@@ -44,6 +44,13 @@ def get_subreddits(session, config):
             sub_candidates.append((subreddit_name, c['frequency']))
 
     print('Sub candidates:')
+    duration_priorities = {
+        'day': 1,
+        'week': 2,
+        'month': 3
+    }
+    sub_candidates = sorted(
+        sub_candidates, key=lambda s: duration_priorities[s[1]])
     print(sub_candidates)
 
     subs = []
