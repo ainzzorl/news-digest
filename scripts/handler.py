@@ -146,6 +146,9 @@ def get_frequency(config, subreddit_name):
     if subreddit_name in config['overrides'] and 'frequency' in config[
             'overrides'][subreddit_name]:
         return config['overrides'][subreddit_name]['frequency']
+    if subreddit_name in config['extra'] and 'frequency' in config[
+            'extra'][subreddit_name]:
+        return config['extra'][subreddit_name]['frequency']
     return config['frequency']
 
 
