@@ -10,6 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from telethon.sync import TelegramClient
 from telethon.tl.functions.messages import GetHistoryRequest, GetAllChatsRequest
+import telethon
 import shutil
 import urllib.request
 import json
@@ -163,7 +164,7 @@ def gen_subreddit_digest(session, config, subreddit_name):
     elif frequency == 'month':
         max_time_diff = 86400 * 31 * 2
     else:
-        #print(f"Unknown frequency: {frequency}")
+        # print(f"Unknown frequency: {frequency}")
         exit(1)
     submissions = [
         s for s in submissions
@@ -306,7 +307,7 @@ def rss_story_to_html(item):
 
 def process_rss_description(description):
     result = description
-    #result = h.handle(result)
+    # result = h.handle(result)
     result = re.sub(r'ДАННОЕ\s*СООБЩЕНИЕ\s*\(МАТЕРИАЛ\)\s*СОЗДАНО\s*И\s*\(ИЛИ\)\s*РАСПРОСТРАНЕНО\s*ИНОСТРАННЫМ\s*СРЕДСТВОМ\s*МАССОВОЙ\s*ИНФОРМАЦИИ,\s*ВЫПОЛНЯЮЩИМ\s*ФУНКЦИИ\sИНОСТРАННОГО\sАГЕНТА, И\s\(ИЛИ\)\sРОССИЙСКИМ\sЮРИДИЧЕСКИМ ЛИЦОМ,\sВЫПОЛНЯЮЩИМ\sФУНКЦИИ\sИНОСТРАННОГО\sАГЕНТА.', '', result)
     result = re.sub(
         r'Спасите «Медузу»!.*https:\/\/support\.meduza\.io', '', result)
@@ -322,11 +323,18 @@ def gen_telegram_digest(config):
     shutil.copyfile('session_name.session', '/tmp/session_name.session')
 
     with TelegramClient('/tmp/session_name.session', config['api_id'], config['api_hash']) as client:
-        my_chats = client(GetAllChatsRequest(
-            except_ids=config['except_chat_ids'])).chats
-        for chat in my_chats:
-            channel_entity = client.get_entity(chat.id)
-            print(f"Processing chat: {channel_entity.title}")
+        for dialog in client.iter_dialogs():
+            if dialog.id in config['except_chat_ids']:
+                print(f'Excluding {dialog.id}')
+                continue
+            if (datetime.now().astimezone() - dialog.date).days >= 1:
+                print(f'Date too far: {dialog.date}, stopping')
+                break
+            channel_entity = client.get_entity(dialog.id)
+            print(f"Processing chat: {dialog.name}")
+            if not isinstance(channel_entity, telethon.tl.types.Chat) and not isinstance(channel_entity, telethon.tl.types.Channel):
+                print('Skipping, wrong type')
+                continue
             # print(channel_entity)
             posts = client(GetHistoryRequest(
                 peer=channel_entity,
@@ -362,9 +370,9 @@ def gen_telegram_digest(config):
 
             if total_posts == 0:
                 print(
-                    f'Chat with no messages: {channel_entity.title}, id={channel_entity.id}.')
+                    f'Chat with no messages: {dialog.name}, id={channel_entity.id}.')
             else:
-                res += f'<h4>{channel_entity.title} ({total_posts} item(s), id={channel_entity.id})</h4>'
+                res += f'<h4>{dialog.name} ({total_posts} item(s), id={channel_entity.id})</h4>'
                 res += posts_str
 
     return res
@@ -388,7 +396,7 @@ def load_config():
     global CONFIG
     with open("config.yml", 'r') as stream:
         try:
-            #print("Read config.yml")
+            # print("Read config.yml")
             CONFIG = yaml.safe_load(stream)
             # print(CONFIG)
         except yaml.YAMLError as exc:
