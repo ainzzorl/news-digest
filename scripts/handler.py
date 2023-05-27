@@ -324,16 +324,16 @@ def gen_telegram_digest(config):
 
     with TelegramClient('/tmp/session_name.session', config['api_id'], config['api_hash']) as client:
         for dialog in client.iter_dialogs():
-            if dialog.id in config['except_chat_ids']:
-                print(f'Excluding {dialog.id}')
-                continue
             if (datetime.now().astimezone() - dialog.date).days >= 1:
                 print(f'Date too far: {dialog.date}, stopping')
                 break
             channel_entity = client.get_entity(dialog.id)
-            print(f"Processing chat: {dialog.name}")
+            print(f"Processing chat: {dialog.name}, id: {dialog.id}, channel id: {channel_entity.id}")
             if not isinstance(channel_entity, telethon.tl.types.Chat) and not isinstance(channel_entity, telethon.tl.types.Channel):
                 print('Skipping, wrong type')
+                continue
+            if channel_entity.id in config['except_chat_ids']:
+                print(f'Excluding {channel_entity.id} ({dialog.name})')
                 continue
             # print(channel_entity)
             posts = client(GetHistoryRequest(
