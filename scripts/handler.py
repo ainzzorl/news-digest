@@ -166,21 +166,29 @@ def gen_subreddit_digest(session, config, subreddit_name):
     else:
         # print(f"Unknown frequency: {frequency}")
         exit(1)
-    submissions = [
-        s for s in submissions
-        if (datetime.now() - datetime.utcfromtimestamp(s.created_utc)
-            ).total_seconds() <= max_time_diff
-    ]
+
+    if frequency == 'day':
+        frequency_readable = 'daily'
+    else:
+        frequency_readable = f'{frequency}ly'
+
+    try:
+        submissions = [
+            s for s in submissions
+            if (datetime.now() - datetime.utcfromtimestamp(s.created_utc)
+                ).total_seconds() <= max_time_diff
+        ]
+    except Exception as e:
+        print(f'Unable to list submissions for {subreddit_name}: {e}')
+        digest = f"<h4>/r/{subreddit_name} ({frequency_readable})</h4>"
+        digest += f'<p>Unable to list submissions: {e}</p>'
+        return digest
 
     submissions = submissions[:config['submissions_per_subreddit']]
 
     if not submissions:
         return None
 
-    if frequency == 'day':
-        frequency_readable = 'daily'
-    else:
-        frequency_readable = f'{frequency}ly'
     print(f"Generating subreddit digest for {subreddit_name}")
     digest = f"<h4>/r/{subreddit_name} ({frequency_readable})</h4>"
 
