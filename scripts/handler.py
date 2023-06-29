@@ -306,7 +306,7 @@ def hn_item_to_html(config, item):
 def rss_story_to_html(item):
     result = f"{item.title}\n<br>" + f"<a href='{item.link}'>{item.link}</a>\n<br>" + \
         f"{item.published}\n<br>" + \
-        f"{process_rss_description(item.description)}"
+        f"{process_rss_description(item.description if hasattr(item, 'description') else 'N/A')}"
     # image_urls = '\n<br>'.join(
     #     [f"<img src='{link.href}'/>" for link in item.links if link.type.startswith('image/')])
     # return result + image_urls
