@@ -15,6 +15,7 @@ import shutil
 import urllib.request
 import json
 from calendar import monthrange
+import base64
 
 CONFIG = None
 ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
@@ -323,19 +324,18 @@ def process_rss_description(description):
     return result
 
 
-def gen_telegram_digest(config):
-    # TODO: pull from S3 or somewhere
+async def gen_telegram_digest(config):
     res = ''
     res += '<h2>Telegram</h2><br>'
 
     shutil.copyfile('session_name.session', '/tmp/session_name.session')
 
-    with TelegramClient('/tmp/session_name.session', config['api_id'], config['api_hash']) as client:
-        for dialog in client.iter_dialogs():
+    async with TelegramClient('/tmp/session_name.session', config['api_id'], config['api_hash']) as client:
+        async for dialog in client.iter_dialogs():
             if (datetime.now().astimezone() - dialog.date).days >= 1:
                 print(f'Date too far: {dialog.date}, stopping')
                 break
-            channel_entity = client.get_entity(dialog.id)
+            channel_entity = await client.get_entity(dialog.id)
             print(f"Processing chat: {dialog.name}, id: {dialog.id}, channel id: {channel_entity.id}")
             if not isinstance(channel_entity, telethon.tl.types.Chat) and not isinstance(channel_entity, telethon.tl.types.Channel):
                 print('Skipping, wrong type')
@@ -343,8 +343,7 @@ def gen_telegram_digest(config):
             if channel_entity.id in config['except_chat_ids']:
                 print(f'Excluding {channel_entity.id} ({dialog.name})')
                 continue
-            # print(channel_entity)
-            posts = client(GetHistoryRequest(
+            posts = await client(GetHistoryRequest(
                 peer=channel_entity,
                 limit=50,
                 offset_date=None,
@@ -368,12 +367,19 @@ def gen_telegram_digest(config):
                 selected_posts.append(post)
 
             for post in selected_posts[::-1]:
+                if isinstance(post.action, telethon.tl.types.MessageActionChatAddUser):
+                    #print("Ignoring MessageActionChatAddUser")
+                    continue
+
                 posts_str += f"<b>{str(post.date)}</b>" + "<br>\n"
                 if hasattr(channel_entity, 'username') and channel_entity.username is not None:
                     usr = channel_entity.username
                     url = "https://t.me/" + str(usr) + "/" + str(post.id)
                     posts_str += f'<a href="{url}">{url}</a><br>\n'
                 posts_str += str(post.message) + "<br>\n"
+                posts_str += "<br>\n"
+
+                posts_str += await get_post_media_tag(client, post)
                 posts_str += "<br>\n"
 
             if total_posts == 0:
@@ -385,15 +391,53 @@ def gen_telegram_digest(config):
 
     return res
 
+async def get_post_media_tag(client, post):
+    if post.audio is not None:
+        return '<span><i>Unsupported message type: audio</i></span>'
+    if post.gif is not None:
+        return '<span><i>Unsupported message type: gif</i></span>'
+    if post.sticker is not None:
+        return '<span><i>Unsupported message type: sticker</i></span>'
+    if post.video is not None:
+        return '<span><i>Unsupported message type: video</i></span>'
+    if post.video_note is not None:
+        return '<span><i>Unsupported message type: video note</i></span>'
+    if post.voice is not None:
+        return '<span><i>Unsupported message type: voice</i></span>'
+    if post.poll is not None:
+        return '<span><i>Unsupported message type: poll</i></span>'
 
-def gen_source_digest(config):
+    if post.photo is None:
+        return ''
+
+    ext_to_mime = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+    }
+    if post.file.ext not in ext_to_mime:
+        return f'<span><i>Unsupported image extension: {post.file.ext}</i></span>'
+    mime = ext_to_mime[post.file.ext]
+
+    thumb = None
+    for (i, size) in enumerate(post.photo.sizes):
+        if hasattr(size, 'w') and size.w <= 800:
+            thumb = i
+
+    blob = await client.download_media(post, bytes, thumb=thumb)
+    encoded = base64.b64encode(blob).decode('utf-8')
+
+    return f"<img src=\"data:{mime};base64, {encoded}\" alt=\"Image\"/>"
+
+
+async def gen_source_digest(config):
     print(f"Generating source digest, config: {config}")
     if config['type'] == 'rss':
         return gen_rss_digest(config)
     elif config['type'] == 'reddit':
         return gen_reddit_digest(config)
     elif config['type'] == 'telegram':
-        return gen_telegram_digest(config)
+        return await gen_telegram_digest(config)
     elif config['type'] == 'hn':
         return gen_hn_digest(config)
     else:
@@ -413,10 +457,10 @@ def load_config():
             exit(1)
 
 
-def gen_digest():
+async def gen_digest():
     load_config()
     return '<html><body>' + "\n<br>".join(
-        [gen_source_digest(source) for source in CONFIG['sources']]) + '</body></html>'
+        [await gen_source_digest(source) for source in CONFIG['sources']]) + '</body></html>'
 
 
 def mail_digest(digest):
