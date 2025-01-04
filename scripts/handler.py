@@ -379,7 +379,7 @@ async def gen_telegram_digest(config):
                 posts_str += str(post.message) + "<br>\n"
                 posts_str += "<br>\n"
 
-                posts_str += await get_post_media_tag(client, post)
+                posts_str += await get_post_media_tag(client, post, no_media = channel_entity.id in config['no_media'])
                 posts_str += "<br>\n"
 
             if total_posts == 0:
@@ -391,7 +391,7 @@ async def gen_telegram_digest(config):
 
     return res
 
-async def get_post_media_tag(client, post):
+async def get_post_media_tag(client, post, no_media=False):
     if post.audio is not None:
         return '<span><i>Unsupported message type: audio</i></span>'
     if post.gif is not None:
@@ -409,6 +409,8 @@ async def get_post_media_tag(client, post):
 
     if post.photo is None:
         return ''
+    if no_media:
+        return '<span><i>Not including media for this channel</i></span>'
 
     ext_to_mime = {
         '.jpg': 'image/jpeg',
