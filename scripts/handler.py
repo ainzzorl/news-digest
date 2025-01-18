@@ -379,7 +379,12 @@ async def gen_telegram_digest(config):
                 posts_str += str(post.message) + "<br>\n"
                 posts_str += "<br>\n"
 
-                posts_str += await get_post_media_tag(client, post, no_media = channel_entity.id in config['no_media'])
+                media_tag = await get_post_media_tag(client, post, no_media = channel_entity.id in config['no_media'])
+                posts_str += media_tag
+
+                if len(str(post.message)) == 0 and len(media_tag) == 0:
+                    posts_str += str(post)
+
                 posts_str += "<br>\n"
 
             if total_posts == 0:
