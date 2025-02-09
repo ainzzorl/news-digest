@@ -9,7 +9,7 @@ import praw
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from telethon.sync import TelegramClient
-from telethon.tl.functions.messages import GetHistoryRequest, GetAllChatsRequest
+from telethon.tl.functions.messages import GetHistoryRequest
 import telethon
 import shutil
 import urllib.request
@@ -331,70 +331,77 @@ async def gen_telegram_digest(config):
     shutil.copyfile('session_name.session', '/tmp/session_name.session')
 
     async with TelegramClient('/tmp/session_name.session', config['api_id'], config['api_hash']) as client:
+        # For testing one channel
+        # return await gen_telegram_channel_digest(config, client, <id>)
         async for dialog in client.iter_dialogs():
             if (datetime.now().astimezone() - dialog.date).days >= 1:
                 print(f'Date too far: {dialog.date}, stopping')
                 break
-            channel_entity = await client.get_entity(dialog.id)
-            print(f"Processing chat: {dialog.name}, id: {dialog.id}, channel id: {channel_entity.id}")
-            if not isinstance(channel_entity, telethon.tl.types.Chat) and not isinstance(channel_entity, telethon.tl.types.Channel):
-                print('Skipping, wrong type')
-                continue
-            if channel_entity.id in config['except_chat_ids']:
-                print(f'Excluding {channel_entity.id} ({dialog.name})')
-                continue
-            posts = await client(GetHistoryRequest(
-                peer=channel_entity,
-                limit=50,
-                offset_date=None,
-                offset_id=0,
-                max_id=0,
-                min_id=0,
-                add_offset=0,
-                hash=0))
-            posts_str = ''
-            total_posts = 0
-
-            selected_posts = []
-            for post in posts.messages:
-                # if post.message is None:
-                #     print("### None")
-                #     print(post)
-                ago = datetime.now().astimezone() - post.date
-                if ago.days >= 1:
-                    break
-                total_posts += 1
-                selected_posts.append(post)
-
-            for post in selected_posts[::-1]:
-                if isinstance(post.action, telethon.tl.types.MessageActionChatAddUser):
-                    #print("Ignoring MessageActionChatAddUser")
-                    continue
-
-                posts_str += f"<b>{str(post.date)}</b>" + "<br>\n"
-                if hasattr(channel_entity, 'username') and channel_entity.username is not None:
-                    usr = channel_entity.username
-                    url = "https://t.me/" + str(usr) + "/" + str(post.id)
-                    posts_str += f'<a href="{url}">{url}</a><br>\n'
-                posts_str += str(post.message) + "<br>\n"
-                posts_str += "<br>\n"
-
-                media_tag = await get_post_media_tag(client, post, no_media = channel_entity.id in config['no_media'])
-                posts_str += media_tag
-
-                if len(str(post.message)) == 0 and len(media_tag) == 0:
-                    posts_str += str(post)
-
-                posts_str += "<br>\n"
-
-            if total_posts == 0:
-                print(
-                    f'Chat with no messages: {dialog.name}, id={channel_entity.id}.')
-            else:
-                res += f'<h4>{dialog.name} ({total_posts} item(s), id={channel_entity.id})</h4>'
-                res += posts_str
+            res += await gen_telegram_channel_digest(config, client, dialog.id)
 
     return res
+
+async def gen_telegram_channel_digest(config, client, id):
+    res = ''
+    channel_entity = await client.get_entity(id)
+    if not isinstance(channel_entity, telethon.tl.types.Chat) and not isinstance(channel_entity, telethon.tl.types.Channel):
+        print('Skipping, wrong type')
+        return ''
+    print(f"Processing chat: {channel_entity.title}, id: {id}, channel id: {channel_entity.id}")
+    if channel_entity.id in config['except_chat_ids']:
+        print(f'Excluding {channel_entity.id} ({channel_entity.title})')
+        return ''
+    posts = await client(GetHistoryRequest(
+        peer=channel_entity,
+        limit=50,
+        offset_date=None,
+        offset_id=0,
+        max_id=0,
+        min_id=0,
+        add_offset=0,
+        hash=0))
+    posts_str = ''
+    total_posts = 0
+
+    selected_posts = []
+    for post in posts.messages:
+        ago = datetime.now().astimezone() - post.date
+        if ago.days >= 1:
+            break
+        total_posts += 1
+        selected_posts.append(post)
+
+    for post in selected_posts[::-1]:
+        if isinstance(post.action, telethon.tl.types.MessageActionChatAddUser):
+            #print("Ignoring MessageActionChatAddUser")
+            continue
+
+        posts_str += f"<b>{str(post.date)}</b>" + "<br>\n"
+        if hasattr(channel_entity, 'username') and channel_entity.username is not None:
+            usr = channel_entity.username
+            url = "https://t.me/" + str(usr) + "/" + str(post.id)
+            posts_str += f'<a href="{url}">{url}</a><br>\n'
+        post_message = str(post.message).replace('\n', '<br>\n')
+        posts_str += post_message
+        posts_str += "<br>\n"
+
+        media_tag = await get_post_media_tag(client, post, no_media = channel_entity.id in config['no_media'])
+        posts_str += media_tag
+
+        if len(str(post.message)) == 0 and len(media_tag) == 0:
+            posts_str += str(post)
+
+        posts_str += "<br>\n"
+
+    if total_posts == 0:
+        print(
+            f'Chat with no messages: {channel_entity.title}, id={channel_entity.id}.')
+        return ''
+    else:
+        res += f'<h4>{channel_entity.title} ({total_posts} item(s), id={channel_entity.id})</h4>'
+        res += posts_str
+    return res
+
 
 async def get_post_media_tag(client, post, no_media=False):
     if post.audio is not None:

@@ -1,5 +1,6 @@
 from handler import gen_digest
 from handler import mail_digest
+from pathlib import Path
 
 import sys
 import asyncio
@@ -16,6 +17,7 @@ async def main():
     if 'gen' in sys.argv:
         print('Generating digest')
         digest = await gen_digest()
+        #print(digest)
     else:
         print('Using dummy digest')
         digest = """\
@@ -30,7 +32,7 @@ async def main():
     </html>
     """
 
-    # with open("~/tmp/res.html", "w") as text_file:
+    # with open(f"{Path.home()}/tmp/res.html", "w") as text_file:
     #     text_file.write(digest)
 
     if 'mail' in sys.argv:
