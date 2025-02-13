@@ -381,6 +381,16 @@ async def gen_telegram_channel_digest(config, client, id):
             usr = channel_entity.username
             url = "https://t.me/" + str(usr) + "/" + str(post.id)
             posts_str += f'<a href="{url}">{url}</a><br>\n'
+
+        if hasattr(post, 'from_id') and hasattr(post.from_id, 'user_id'):
+            user_id = post.from_id.user_id
+        else:
+            user_id = 'undefined'
+        if user_id in config['silenced_user_ids']:
+            posts_str += f"<span><i>Silenced user: {user_id}</i></span>"
+            posts_str += "<br>\n"
+            continue
+
         post_message = str(post.message).replace('\n', '<br>\n')
         posts_str += post_message
         posts_str += "<br>\n"
