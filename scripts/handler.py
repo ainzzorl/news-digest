@@ -22,15 +22,14 @@ ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
 
 
 def get_subreddits(session, config):
-    day_of_week = datetime.now().weekday()
-    day_of_month = datetime.now().day - 1
+    day_of_week = datetime.now().weekday() + 1 # 1-7
+    day_of_month = datetime.now().day - 1 # 0-30
     _, days_in_month = monthrange(datetime.now().year, datetime.now().month)
 
     print(f'Day of week: {day_of_week}')
     print(f'Day of month: {day_of_month}')
     print(f'Days in this month: {days_in_month}')
 
-    weekly_count = 0
     monthly_count = 0
 
     sub_candidates = []
@@ -39,11 +38,15 @@ def get_subreddits(session, config):
             continue
         frequency = get_frequency(config,
                                   subreddit.display_name)
-        sub_candidates.append((subreddit.display_name, frequency))
+        day = get_day(config,
+                      subreddit.display_name)
+        sub_candidates.append((subreddit.display_name, frequency, day))
 
     if 'extra' in config:
         for subreddit_name, c in config['extra'].items():
-            sub_candidates.append((subreddit_name, c['frequency']))
+            day = get_day(config,
+                          subreddit_name)
+            sub_candidates.append((subreddit_name, c['frequency'], day))
 
     print('Sub candidates:')
     duration_priorities = {
@@ -56,16 +59,15 @@ def get_subreddits(session, config):
     print(sub_candidates)
 
     subs = []
-    for subreddit_name, frequency in sub_candidates:
+    for subreddit_name, frequency, day in sub_candidates:
         take = False
 
         if frequency == 'day':
             take = True
 
         if frequency == 'week':
-            if weekly_count == day_of_week:
+            if day == day_of_week:
                 take = True
-            weekly_count = (weekly_count + 1) % 7
 
         if frequency == 'month':
             if monthly_count == day_of_month:
@@ -153,9 +155,18 @@ def get_frequency(config, subreddit_name):
         return config['extra'][subreddit_name]['frequency']
     return config['frequency']
 
+def get_day(config, subreddit_name):
+    if subreddit_name in config['overrides'] and 'day' in config[
+            'overrides'][subreddit_name]:
+        return config['overrides'][subreddit_name]['day']
+    if subreddit_name in config['extra'] and 'day' in config[
+            'extra'][subreddit_name]:
+        return config['extra'][subreddit_name]['day']
+    return 1
 
 def gen_subreddit_digest(session, config, subreddit_name):
     frequency = get_frequency(config, subreddit_name)
+    day = get_day(config, subreddit_name)
     submissions = session.subreddit(subreddit_name).top(frequency)
 
     if frequency == 'day':
