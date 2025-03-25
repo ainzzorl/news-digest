@@ -344,24 +344,48 @@ async def gen_telegram_digest(config):
     async with TelegramClient('/tmp/session_name.session', config['api_id'], config['api_hash']) as client:
         # For testing one channel
         # return await gen_telegram_channel_digest(config, client, <id>)
+
+        channel_id_to_text = {}
+
         async for dialog in client.iter_dialogs():
             if (datetime.now().astimezone() - dialog.date).days >= 1:
                 print(f'Date too far: {dialog.date}, stopping')
                 break
-            res += await gen_telegram_channel_digest(config, client, dialog.id)
+
+            channel_entity = await client.get_entity(dialog.id)
+            if not isinstance(channel_entity, telethon.tl.types.Chat) and not isinstance(channel_entity, telethon.tl.types.Channel):
+                print(f'Skipping {dialog.id}, wrong type')
+                continue
+
+            channel_id_to_text[channel_entity.id] = await gen_telegram_channel_digest(config, client, channel_entity)
+
+        # First add channels that are in config['channels']
+        for channel in config['channels']:
+            if channel['id'] in channel_id_to_text:
+                res += channel_id_to_text[channel['id']]
+
+        # Then add channels that are not in config['channels']
+        for channel_id, text in channel_id_to_text.items():
+            if channel_id not in [c['id'] for c in config['channels']]:
+                res += text
 
     return res
 
-async def gen_telegram_channel_digest(config, client, id):
+async def gen_telegram_channel_digest(config, client, channel_entity):
     res = ''
-    channel_entity = await client.get_entity(id)
-    if not isinstance(channel_entity, telethon.tl.types.Chat) and not isinstance(channel_entity, telethon.tl.types.Channel):
-        print('Skipping, wrong type')
-        return ''
-    print(f"Processing chat: {channel_entity.title}, id: {id}, channel id: {channel_entity.id}")
+    print(f"Processing chat: {channel_entity.title}, channel id: {channel_entity.id}")
     if channel_entity.id in config['except_chat_ids']:
         print(f'Excluding {channel_entity.id} ({channel_entity.title})')
         return ''
+
+    # Get config for this channel
+    channel_config = next((c for c in config['channels'] if c['id'] == channel_entity.id), None)
+
+    if channel_config is not None and 'days' in channel_config:
+        if datetime.now().weekday() + 1 not in channel_config['days']:
+            print(f'Skipping {channel_entity.id} ({channel_entity.title}), not in days {channel_config["days"]}. Current day: {datetime.now().weekday() + 1}')
+            return ''
+
     posts = await client(GetHistoryRequest(
         peer=channel_entity,
         limit=50,
