@@ -1,6 +1,6 @@
 import yaml
 import feedparser
-from datetime import datetime
+from datetime import datetime, date
 from time import mktime
 import re
 import smtplib
@@ -16,6 +16,7 @@ import urllib.request
 import json
 from calendar import monthrange
 import base64
+import hashlib
 
 CONFIG = None
 ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
@@ -30,7 +31,15 @@ def get_subreddits(session, config):
     print(f'Day of month: {day_of_month}')
     print(f'Days in this month: {days_in_month}')
 
-    monthly_count = 0
+    # Given days of week, e.g. [1, 3, 5], select days of month,
+    # e.g. all mondays, wednesdays and fridays of this month
+    days_for_monthly = []
+    for day in range(days_in_month):
+        d = date(datetime.now().year, datetime.now().month, day + 1)
+        if d.weekday() + 1 in config['days_for_monthly']:
+            days_for_monthly.append(day + 1)
+    print(f'Days for monthly: {days_for_monthly}')
+
 
     sub_candidates = []
     for subreddit in list(session.user.subreddits(limit=None)):
@@ -67,12 +76,16 @@ def get_subreddits(session, config):
 
         if frequency == 'week':
             if day == day_of_week:
+                print(f'Taking weekly subreddit {subreddit_name}. Day of week: {day_of_week}, day: {day}')
                 take = True
 
         if frequency == 'month':
-            if monthly_count == day_of_month:
+            subreddit_hash = string_to_int_hash(subreddit_name)
+            day_for_subreddit = days_for_monthly[subreddit_hash % len(days_for_monthly)]
+            print(f'Day for subreddit {subreddit_name}: {day_for_subreddit}. Today: {day_of_month + 1}')
+            if day_for_subreddit == day_of_month + 1:
+                print(f'Taking monthly subreddit {subreddit_name}')
                 take = True
-            monthly_count = (monthly_count + 1) % days_in_month
 
         if take:
             subs.append(subreddit_name)
@@ -81,6 +94,9 @@ def get_subreddits(session, config):
     print(f'Selected subreddits: {subs}')
     return subs
 
+def string_to_int_hash(s):
+    # Use hashlib to create a hash of the string (MD5 is chosen here)
+    return int(hashlib.md5(s.encode()).hexdigest(), 16)
 
 def gen_submission_digest(config, subreddit_name, submission):
     digest = f"{submission.title} (score: {submission.score})\n<br>"
