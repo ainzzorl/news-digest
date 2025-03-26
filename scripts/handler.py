@@ -446,6 +446,10 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
             days_to_take = days_since_last_included_day(current_day, days)
         if ago.days >= days_to_take:
             break
+        if include_filters:
+            if not any(filter in str(post.message) for filter in include_filters):
+                continue
+
         total_posts += 1
         selected_posts.append(post)
 
@@ -453,10 +457,6 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
         if isinstance(post.action, telethon.tl.types.MessageActionChatAddUser):
             #print("Ignoring MessageActionChatAddUser")
             continue
-
-        if include_filters:
-            if not any(filter in str(post.message) for filter in include_filters):
-                continue
 
         posts_str += f"<b>{str(post.date)}</b>" + "<br>\n"
         if hasattr(channel_entity, 'username') and channel_entity.username is not None:
