@@ -34,10 +34,15 @@ def get_subreddits(session, config):
     # Given days of week, e.g. [1, 3, 5], select days of month,
     # e.g. all mondays, wednesdays and fridays of this month
     days_for_monthly = []
+    # Take only the first 4 weeks of the month,
+    # so assignment is consistent across months.
+    max_days_for_monthly = len(config['days_for_monthly']) * 4
     for day in range(days_in_month):
         d = date(datetime.now().year, datetime.now().month, day + 1)
         if d.weekday() + 1 in config['days_for_monthly']:
             days_for_monthly.append(day + 1)
+            if len(days_for_monthly) >= max_days_for_monthly:
+                break
     print(f'Days for monthly: {days_for_monthly}')
 
 
