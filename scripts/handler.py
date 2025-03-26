@@ -386,6 +386,9 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
             print(f'Skipping {channel_entity.id} ({channel_entity.title}), not in days {channel_config["days"]}. Current day: {datetime.now().weekday() + 1}')
             return ''
 
+    filters = channel_config['filters'] if channel_config is not None and 'filters' in channel_config else {}
+    include_filters = filters['include'] if 'include' in filters else []
+
     posts = await client(GetHistoryRequest(
         peer=channel_entity,
         limit=50,
@@ -410,6 +413,10 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
         if isinstance(post.action, telethon.tl.types.MessageActionChatAddUser):
             #print("Ignoring MessageActionChatAddUser")
             continue
+
+        if include_filters:
+            if not any(filter in str(post.message) for filter in include_filters):
+                continue
 
         posts_str += f"<b>{str(post.date)}</b>" + "<br>\n"
         if hasattr(channel_entity, 'username') and channel_entity.username is not None:
