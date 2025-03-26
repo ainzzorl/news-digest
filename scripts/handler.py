@@ -232,6 +232,11 @@ def gen_reddit_digest(config):
 
 
 def gen_rss_digest(config):
+    current_day = datetime.now().weekday() + 1
+    if current_day not in config['days']:
+        print(f'Skipping {config["name"]}, not in days {config["days"]}. Current day: {current_day}')
+        return ''
+
     feed = feedparser.parse(config['url'])
     print(feed.feed)
     items = feed.entries
@@ -541,8 +546,9 @@ def load_config():
 
 async def gen_digest():
     load_config()
-    return '<html><body>' + "\n<br>".join(
-        [await gen_source_digest(source) for source in CONFIG['sources']]) + '</body></html>'
+    source_results = [await gen_source_digest(source) for source in CONFIG['sources']]
+    source_results = [r for r in source_results if r is not None and len(r) > 0]
+    return '<html><body>' + "\n<br>".join(source_results) + '</body></html>'
 
 
 def mail_digest(digest):
