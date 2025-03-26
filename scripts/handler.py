@@ -269,13 +269,26 @@ def gen_rss_digest(config):
 def gen_hn_digest(config):
     feed = feedparser.parse(config['url'])
     print(feed.feed)
+
+    current_day = datetime.now().weekday() + 1
+    if current_day not in config['days']:
+        print(f'Skipping {config["name"]}, not in days {config["days"]}. Current day: {current_day}')
+        return ''
+
+    days_to_take = 1
+    if config['include_days_since_last'] == 'yes':
+        days_to_take = days_since_last_included_day(current_day, config['days'])
+    seconds_to_take = days_to_take * 86400
+    print(f'Days to take for HN: {days_to_take}')
+
+
     items = feed.entries
     items = [
         item for item in items
         if ('published_parsed' in item and
             (datetime.now() -
              datetime.fromtimestamp(mktime(item.published_parsed))
-             ).total_seconds() <= CONFIG['max_time_diff_seconds'])
+             ).total_seconds() <= seconds_to_take)
     ]
 
     digest = f"<h2>{config['name']} ({len(items)} item(s))</h2>\n\n"
@@ -412,7 +425,10 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
     for post in posts.messages:
         ago = datetime.now().astimezone() - post.date
         days = channel_config['days'] if channel_config is not None and 'days' in channel_config else default_days()
-        if ago.days >= days_since_last_included_day(current_day, days):
+        days_to_take = 1
+        if channel_config is not None and channel_config['include_days_since_last'] == 'yes':
+            days_to_take = days_since_last_included_day(current_day, days)
+        if ago.days >= days_to_take:
             break
         total_posts += 1
         selected_posts.append(post)
