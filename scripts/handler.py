@@ -348,7 +348,7 @@ async def gen_telegram_digest(config):
         channel_id_to_text = {}
 
         async for dialog in client.iter_dialogs():
-            if (datetime.now().astimezone() - dialog.date).days >= 1:
+            if (datetime.now().astimezone() - dialog.date).days >= 3:
                 print(f'Date too far: {dialog.date}, stopping')
                 break
 
@@ -381,9 +381,11 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
     # Get config for this channel
     channel_config = next((c for c in config['channels'] if c['id'] == channel_entity.id), None)
 
+    current_day = datetime.now().weekday() + 1
+
     if channel_config is not None and 'days' in channel_config:
-        if datetime.now().weekday() + 1 not in channel_config['days']:
-            print(f'Skipping {channel_entity.id} ({channel_entity.title}), not in days {channel_config["days"]}. Current day: {datetime.now().weekday() + 1}')
+        if current_day not in channel_config['days']:
+            print(f'Skipping {channel_entity.id} ({channel_entity.title}), not in days {channel_config["days"]}. Current day: {current_day}')
             return ''
 
     filters = channel_config['filters'] if channel_config is not None and 'filters' in channel_config else {}
@@ -404,7 +406,8 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
     selected_posts = []
     for post in posts.messages:
         ago = datetime.now().astimezone() - post.date
-        if ago.days >= 1:
+        days = channel_config['days'] if channel_config is not None and 'days' in channel_config else default_days()
+        if ago.days >= days_since_last_included_day(current_day, days):
             break
         total_posts += 1
         selected_posts.append(post)
@@ -454,6 +457,19 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
         res += posts_str
     return res
 
+def default_days():
+    return [1, 2, 3, 4, 5, 6, 7]
+
+def days_since_last_included_day(current_day, included_days):
+    result = None
+    for day in included_days:
+        if current_day == day:
+            continue
+        if current_day > day:
+            result = current_day - day
+    if result is None:
+        result = 7 - included_days[-1] + current_day
+    return result
 
 async def get_post_media_tag(client, post, no_media=False):
     if post.audio is not None:
