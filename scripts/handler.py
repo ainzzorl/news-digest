@@ -432,7 +432,7 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
 
     posts = await client(GetHistoryRequest(
         peer=channel_entity,
-        limit=50,
+        limit=100,
         offset_date=None,
         offset_id=0,
         max_id=0,
