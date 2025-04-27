@@ -51,7 +51,7 @@ async def main():
         print('Uploading digest')
         upload_digest(digest, s3_path)
     else:
-        print('Skipping mailing')
+        print('Skipping uploading')
 
 
 if __name__ == "__main__":

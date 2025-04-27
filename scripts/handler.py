@@ -10,6 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from telethon.sync import TelegramClient
 from telethon.tl.functions.messages import GetHistoryRequest
+from telethon.tl.functions.users import GetFullUserRequest
 import telethon
 import shutil
 import urllib.request
@@ -464,20 +465,31 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
             #print("Ignoring MessageActionChatAddUser")
             continue
 
-        posts_str += f"<b>{str(post.date)}</b>" + "<br>\n"
-        if hasattr(channel_entity, 'username') and channel_entity.username is not None:
-            usr = channel_entity.username
-            url = "https://t.me/" + str(usr) + "/" + str(post.id)
-            posts_str += f'<a href="{url}">{url}</a><br>\n'
-
         if hasattr(post, 'from_id') and hasattr(post.from_id, 'user_id'):
             user_id = post.from_id.user_id
+            full_user = get_telegram_user(client, user_id)
         else:
             user_id = 'undefined'
+            full_user = None
         if user_id in config['silenced_user_ids']:
             posts_str += f"<span><i>Silenced user: {user_id}</i></span>"
             posts_str += "<br>\n"
             continue
+
+        user_info_suffix = ''
+        if full_user is not None:
+            user_info_suffix += f" - {full_user.username}"
+            if full_user.first_name is not None:
+                user_info_suffix += f" ({full_user.first_name}"
+                if full_user.last_name is not None:
+                    user_info_suffix += f" {full_user.last_name}"
+                user_info_suffix += f")"
+
+        posts_str += f"<b>{str(post.date)}{user_info_suffix}</b>" + "<br>\n"
+        if hasattr(channel_entity, 'username') and channel_entity.username is not None:
+            usr = channel_entity.username
+            url = "https://t.me/" + str(usr) + "/" + str(post.id)
+            posts_str += f'<a href="{url}">{url}</a><br>\n'
 
         post_message = str(post.message).replace('\n', '<br>\n')
         posts_str += post_message
@@ -499,6 +511,19 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
         res += f'<h4>{channel_entity.title} ({total_posts} item(s), id={channel_entity.id})</h4>'
         res += posts_str
     return res
+
+telegram_users_cache = {}
+
+async def get_telegram_user(client, user_id):
+    if user_id in telegram_users_cache:
+        return telegram_users_cache[user_id]
+    users = await client(GetFullUserRequest(user_id))
+    if len(users.users) < 1:
+        result = None
+    else:
+        result = users.users[0]
+    telegram_users_cache[user_id] = result
+    return result
 
 def default_days():
     return [1, 2, 3, 4, 5, 6, 7]
