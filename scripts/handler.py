@@ -17,6 +17,7 @@ import json
 from calendar import monthrange
 import base64
 import hashlib
+import boto3
 
 CONFIG = None
 ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
@@ -376,7 +377,7 @@ def process_rss_description(description):
 
 async def gen_telegram_digest(config):
     res = ''
-    res += '<h2>Telegram</h2><br>'
+    res += '<h2>Telegram</h2>'
 
     shutil.copyfile('session_name.session', '/tmp/session_name.session')
 
@@ -581,12 +582,17 @@ def load_config():
             exit(1)
 
 
-async def gen_digest():
+async def gen_digest(upload_path):
     load_config()
     source_results = [await gen_source_digest(source) for source in CONFIG['sources']]
     source_results = [r for r in source_results if r is not None and len(r) > 0]
-    return '<html><body>' + "\n<br>".join(source_results) + '</body></html>'
-
+    result = '<html><body>'
+    if upload_path:
+        upload_url = f"https://{CONFIG['s3']['bucket']}.s3.{CONFIG['s3']['region']}.amazonaws.com/{upload_path}"
+    result += f'<p><a href="{upload_url}">View on web.</a></p>'
+    result += "\n<br>".join(source_results)
+    result += '</body></html>'
+    return result
 
 def mail_digest(digest):
     load_config()
@@ -606,3 +612,17 @@ def mail_digest(digest):
 
     service.sendmail(CONFIG['mail']['from'], CONFIG['mail']
                      ['to'], msg.as_string().encode('utf-8'))
+
+def upload_digest(digest, path):
+    load_config()
+
+    if not CONFIG['s3']:
+        print('No S3 config, skipping S3 upload')
+        return
+
+    s3 = boto3.client('s3')
+
+    # Upload the text
+    s3.put_object(Bucket=CONFIG['s3']['bucket'], Key=path, Body=digest, ContentType='text/html; charset=utf-8')
+
+    print(f"Uploaded digest to s3://{CONFIG['s3']['bucket']}/{path}")
