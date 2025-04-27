@@ -192,6 +192,10 @@ def gen_subreddit_digest(session, config, subreddit_name):
     day = get_day(config, subreddit_name)
     submissions = session.subreddit(subreddit_name).top(frequency)
 
+    spoiler = False
+    if subreddit_name in config['overrides'] and 'spoiler' in config['overrides'][subreddit_name]:
+        spoiler = config['overrides'][subreddit_name]['spoiler']
+
     if frequency == 'day':
         max_time_diff = 86400 * 2
     elif frequency == 'week':
@@ -227,8 +231,19 @@ def gen_subreddit_digest(session, config, subreddit_name):
     print(f"Generating subreddit digest for {subreddit_name}")
     digest = f"<h4>/r/{subreddit_name} ({frequency_readable})</h4>"
 
-    digest += "\n<br>".join(
+    body = "\n<br>".join(
         [gen_submission_digest(config, subreddit_name, s) for s in submissions])
+
+    if spoiler:
+        div_id = f'subreddit-{subreddit_name}'
+        digest += f'''
+<button onclick="toggleElement('{div_id}')">Possible spoilers! Toggle</button><br><br>
+<div id="{div_id}" style="display: none">
+{body}
+</div>
+'''
+    else:
+        digest += body
 
     return digest
 
@@ -242,7 +257,7 @@ def gen_reddit_digest(config):
 
     subreddits = get_subreddits(session, config)
 
-    digest = f"<h2>Reddit ({len(subreddits)} subreddits)</h2>\n<br>"
+    digest = f"<h2>Reddit ({len(subreddits)} subreddits)</h2>"
 
     subreddit_digests = [
         gen_subreddit_digest(session, config, s) for s in subreddits
@@ -611,7 +626,18 @@ async def gen_digest(upload_path):
     load_config()
     source_results = [await gen_source_digest(source) for source in CONFIG['sources']]
     source_results = [r for r in source_results if r is not None and len(r) > 0]
-    result = '<html><body>'
+    result = '''<html>
+<script>
+  function toggleElement(id) {
+    var content = document.getElementById(id);
+    if (content.style.display === "none" || content.style.display === "") {
+      content.style.display = "block";
+    } else {
+      content.style.display = "none";
+    }
+  }
+</script>
+    <body>'''
     if upload_path:
         upload_url = f"https://{CONFIG['s3']['bucket']}.s3.{CONFIG['s3']['region']}.amazonaws.com/{upload_path}"
     result += f'<p><a href="{upload_url}">View on web.</a></p>'
