@@ -482,7 +482,7 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
 
         if hasattr(post, 'from_id') and hasattr(post.from_id, 'user_id'):
             user_id = post.from_id.user_id
-            full_user = get_telegram_user(client, user_id)
+            full_user = await get_telegram_user(client, user_id)
         else:
             user_id = 'undefined'
             full_user = None
