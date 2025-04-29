@@ -109,7 +109,7 @@ def gen_submission_digest(config, subreddit_name, submission):
     digest = f"{submission.title} (score: {submission.score})\n<br>"
     if subreddit_name in config['showself'] and submission.is_self:
         digest += submission.selftext + "\n<br>"
-    digest += f"<a href='https://old.reddit.com{submission.permalink}'>https://old.reddit.com{submission.permalink}</a>\n<br>"
+    digest += gen_href(f"https://old.reddit.com{submission.permalink}", f"https://old.reddit.com{submission.permalink}") + "\n<br>"
 
     if submission.is_self:
         return digest
@@ -122,7 +122,7 @@ def gen_submission_digest(config, subreddit_name, submission):
                 digest += f"<img src='{image}'/>\n<br>"
             if len(images) > as_images:
                 for image in images[as_images:]:
-                    digest += f"<a href='{image}'>{image}</a>\n<br>"
+                    digest += gen_href(image, image) + "\n<br>"
             return digest
 
     if submission.url.endswith(('jpg', 'jpeg', 'png', 'gif')):
@@ -134,7 +134,7 @@ def gen_submission_digest(config, subreddit_name, submission):
         video_url = get_vreddit(submission)
         if video_url is not None:
             url = video_url
-    digest += f"<a href='{url}'>{url}</a>\n<br>"
+    digest += gen_href(url, url) + "\n<br>"
     return digest
 
 
@@ -343,7 +343,7 @@ def gen_hn_digest(config):
 
 
 def hn_item_to_html(config, item):
-    result = f"{item.title}\n<br>" + f"<a href='{item.link}'>{item.link}</a>\n<br>" + \
+    result = f"{item.title}\n<br>" + gen_href(item.link, item.link) + "\n<br>" + \
         f"{item.published}\n<br>" + \
         f"{process_rss_description(item.description)}"
     image_urls = '\n<br>'.join(
@@ -372,7 +372,7 @@ def hn_item_to_html(config, item):
 
 
 def rss_story_to_html(item):
-    result = f"{item.title}\n<br>" + f"<a href='{item.link}'>{item.link}</a>\n<br>" + \
+    result = f"{item.title}\n<br>" + gen_href(item.link, item.link) + "\n<br>" + \
         f"{item.published}\n<br>" + \
         f"{process_rss_description(item.description if hasattr(item, 'description') else 'N/A')}"
     # image_urls = '\n<br>'.join(
@@ -504,7 +504,7 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
         if hasattr(channel_entity, 'username') and channel_entity.username is not None:
             usr = channel_entity.username
             url = "https://t.me/" + str(usr) + "/" + str(post.id)
-            posts_str += f'<a href="{url}">{url}</a><br>\n'
+            posts_str += gen_href(url, url) + '<br>\n'
 
         post_message = str(post.message).replace('\n', '<br>\n')
         posts_str += post_message
@@ -608,6 +608,8 @@ async def gen_source_digest(config):
     else:
         raise f"Unknown type: {config['type']}"
 
+def gen_href(title, href):
+    return f'<a target="_blank" href="{href}">{title}</a>'
 
 def load_config():
     global CONFIG
