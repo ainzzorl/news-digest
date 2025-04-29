@@ -22,7 +22,7 @@ import boto3
 
 CONFIG = None
 ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
-
+PREFERRED_MAX_IMAGE_WITH = 720
 
 def get_subreddits(session, config):
     day_of_week = datetime.now().weekday() + 1 # 1-7
@@ -160,8 +160,14 @@ def get_reddit_gallery_urls(submission):
         media_metadata = submission.media_metadata
         result = []
         for _k, media in media_metadata.items():
-            img = media['p'][-1]
-            result.append(img['u'].replace('&amp;', '&'))
+            selected_img = media['p'][0]['u']
+            selected_width = media['p'][0]['x'] if media['p'][0]['x'] else 0
+            for m in media['p']:
+                mx = m['x'] if 'x' in m else 0
+                if mx <= PREFERRED_MAX_IMAGE_WITH and mx >= selected_width:
+                    selected_img = m['u']
+                    selected_width = mx
+            result.append(selected_img.replace('&amp;', '&'))
         return result
     except Exception as e:
         print(f"Failed to fetch gallery images for {submission}")
