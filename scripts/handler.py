@@ -627,16 +627,34 @@ async def gen_digest(upload_path):
     source_results = [await gen_source_digest(source) for source in CONFIG['sources']]
     source_results = [r for r in source_results if r is not None and len(r) > 0]
     result = '''<html>
-<script>
-  function toggleElement(id) {
-    var content = document.getElementById(id);
-    if (content.style.display === "none" || content.style.display === "") {
-      content.style.display = "block";
-    } else {
-      content.style.display = "none";
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* Default (light mode) styles */
+        body {
+        background-color: white;
+        color: black;
+        }
+
+        /* Dark mode styles */
+        @media (prefers-color-scheme: dark) {
+        body {
+            background-color: #121212;
+            color: white;
+        }
+        }
+    </style>
+    <script>
+    function toggleElement(id) {
+        var content = document.getElementById(id);
+        if (content.style.display === "none" || content.style.display === "") {
+        content.style.display = "block";
+        } else {
+        content.style.display = "none";
+        }
     }
-  }
-</script>
+    </script>
+</head>
     <body>'''
     if upload_path:
         upload_url = f"https://{CONFIG['s3']['bucket']}.s3.{CONFIG['s3']['region']}.amazonaws.com/{upload_path}"
