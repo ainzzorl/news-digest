@@ -119,14 +119,14 @@ def gen_submission_digest(config, subreddit_name, submission):
         if images is not None:
             as_images = 5
             for image in images[:as_images]:
-                digest += f"<img src='{image}'/>\n<br>"
+                digest += f"<img src='{image}' style='max-width: {PREFERRED_MAX_IMAGE_WITH}px;'/>\n<br>"
             if len(images) > as_images:
                 for image in images[as_images:]:
                     digest += gen_href(image, image) + "\n<br>"
             return digest
 
     if submission.url.endswith(('jpg', 'jpeg', 'png', 'gif')):
-        digest += f"<img src='{submission.url}'/>\n<br>"
+        digest += f"<img src='{submission.url}' style='max-width: {PREFERRED_MAX_IMAGE_WITH}px;'/>\n<br>"
         return digest
 
     url = submission.url
