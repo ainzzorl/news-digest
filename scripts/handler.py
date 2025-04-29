@@ -22,7 +22,7 @@ import boto3
 
 CONFIG = None
 ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
-PREFERRED_MAX_IMAGE_WITH = 720
+PREFERRED_MAX_IMAGE_WITH = 800
 
 def get_subreddits(session, config):
     day_of_week = datetime.now().weekday() + 1 # 1-7
@@ -592,7 +592,7 @@ async def get_post_media_tag(client, post, no_media=False):
 
     thumb = None
     for (i, size) in enumerate(post.photo.sizes):
-        if hasattr(size, 'w') and size.w <= 800:
+        if hasattr(size, 'w') and size.w <= PREFERRED_MAX_IMAGE_WITH:
             thumb = i
 
     blob = await client.download_media(post, bytes, thumb=thumb)
