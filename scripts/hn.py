@@ -38,7 +38,7 @@ def gen_hn_digest(config):
         if (
             "published_parsed" in item
             and (
-                datetime.now() - datetime.fromtimestamp(mktime(item.published_parsed))
+                datetime.now() - datetime.fromtimestamp(mktime(item.published_parsed))  # type: ignore
             ).total_seconds()
             <= seconds_to_take
         )

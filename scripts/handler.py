@@ -1,3 +1,4 @@
+from typing import Any
 import yaml
 import smtplib
 import ssl
@@ -10,10 +11,10 @@ from reddit import *
 from rss import *
 from telegram import *
 
-CONFIG = None
+CONFIG: dict[str, Any] = {}
 
 
-async def gen_source_digest(config):
+async def gen_source_digest(config) -> str:
     print(f"Generating source digest, config: {config}")
     if config["type"] == "rss":
         return gen_rss_digest(config)
@@ -24,7 +25,7 @@ async def gen_source_digest(config):
     elif config["type"] == "hn":
         return gen_hn_digest(config)
     else:
-        raise f"Unknown type: {config['type']}"
+        raise Exception(f"Unknown type: {config['type']}")
 
 
 def load_config():

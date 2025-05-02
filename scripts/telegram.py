@@ -29,9 +29,9 @@ async def gen_telegram_digest(config):
                 break
 
             channel_entity = await client.get_entity(dialog.id)
-            if not isinstance(
-                channel_entity, telethon.tl.types.Chat
-            ) and not isinstance(channel_entity, telethon.tl.types.Channel):
+            if not isinstance(channel_entity, telethon.types.Chat) and not isinstance(
+                channel_entity, telethon.types.Channel
+            ):
                 print(f"Skipping {dialog.id}, wrong type")
                 continue
 
@@ -120,7 +120,7 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
         selected_posts.append(post)
 
     for post in selected_posts[::-1]:
-        if isinstance(post.action, telethon.tl.types.MessageActionChatAddUser):
+        if isinstance(post.action, telethon.types.MessageActionChatAddUser):
             # print("Ignoring MessageActionChatAddUser")
             continue
 

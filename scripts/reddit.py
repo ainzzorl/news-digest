@@ -5,12 +5,8 @@ import hashlib
 
 from util import *
 
-CONFIG = None
-ITEM_SEPARATOR = "" + "*" * 80 + "\n<br>\n<br>"
-PREFERRED_MAX_IMAGE_WITH = 800
 
-
-def get_subreddits(session, config):
+def get_subreddits(session: praw.Reddit, config):
     day_of_week = datetime.now().weekday() + 1  # 1-7
     day_of_month = datetime.now().day - 1  # 0-30
     _, days_in_month = monthrange(datetime.now().year, datetime.now().month)
@@ -34,7 +30,7 @@ def get_subreddits(session, config):
     print(f"Days for monthly: {days_for_monthly}")
 
     sub_candidates = []
-    for subreddit in list(session.user.subreddits(limit=None)):
+    for subreddit in list(session.user.subreddits(limit=None)):  # type: ignore
         if subreddit.display_name in config["exclude"]:
             continue
         frequency = get_frequency(config, subreddit.display_name)
@@ -83,7 +79,7 @@ def get_subreddits(session, config):
     return subs
 
 
-def string_to_int_hash(s):
+def string_to_int_hash(s: str):
     # Use hashlib to create a hash of the string (MD5 is chosen here)
     return int(hashlib.md5(s.encode()).hexdigest(), 16)
 
