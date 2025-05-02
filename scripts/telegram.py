@@ -192,18 +192,6 @@ def default_days():
     return [1, 2, 3, 4, 5, 6, 7]
 
 
-def days_since_last_included_day(current_day, included_days):
-    result = None
-    for day in included_days:
-        if current_day == day:
-            continue
-        if current_day > day:
-            result = current_day - day
-    if result is None:
-        result = 7 - included_days[-1] + current_day
-    return result
-
-
 async def get_post_media_tag(client, post, no_media=False):
     if post.audio is not None:
         return "<span><i>Unsupported message type: audio</i></span>"
