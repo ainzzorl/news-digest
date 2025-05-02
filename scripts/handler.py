@@ -329,15 +329,7 @@ def gen_rss_digest(config):
     # h.ignore_links = True
 
     stories = [rss_story_to_html(item) for item in items]
-    stories = [
-        re.sub(
-            "!\[\]\(http://feeds\.feedburner.com\/~[\s\S]*\/rss\/cnn_topstories.*\)",
-            "",
-            story,
-        ).strip()
-        + "\n<br>"
-        for story in stories
-    ]
+    stories = [story.strip() + "\n<br>" for story in stories]
     digest += "\n" + ITEM_SEPARATOR.join(stories)
 
     return digest
@@ -376,15 +368,7 @@ def gen_hn_digest(config):
     digest = f"<h2>{config['name']} ({len(items)} item(s))</h2>\n\n"
 
     stories = [hn_item_to_html(config, item) for item in items]
-    stories = [
-        re.sub(
-            "!\[\]\(http://feeds\.feedburner.com\/~[\s\S]*\/rss\/cnn_topstories.*\)",
-            "",
-            story,
-        ).strip()
-        + "\n<br>"
-        for story in stories
-    ]
+    stories = [story.strip() + "\n<br>" for story in stories]
     digest += "\n" + ITEM_SEPARATOR.join(stories)
 
     return digest
