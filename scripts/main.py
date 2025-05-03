@@ -29,6 +29,7 @@ async def main():
     parser.add_argument(
         "--source", "-s", type=str, help="Generate digest for specific source only"
     )
+    parser.add_argument("--output", "-o", type=str, help="Output file path")
     args = parser.parse_args()
 
     s3_path = "news-digests/" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".html"
@@ -50,8 +51,12 @@ async def main():
     </html>
     """
 
-    with open(f"{Path.home()}/tmp/res.html", "w") as text_file:
-        text_file.write(digest)
+    if args.output:
+        print(f"Writing digest to {args.output}")
+        with open(args.output, "w") as text_file:
+            text_file.write(digest)
+    else:
+        print("Skipping file output")
 
     if args.mail:
         print("Mailing digest")
