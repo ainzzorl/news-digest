@@ -41,9 +41,19 @@ def load_config():
             exit(1)
 
 
-async def gen_digest(upload_path):
+async def gen_digest(upload_path, source_name=None):
     load_config()
-    source_results = [await gen_source_digest(source) for source in CONFIG["sources"]]
+    if source_name:
+        # Find the specific source
+        source = next((s for s in CONFIG["sources"] if s["name"] == source_name), None)
+        if not source:
+            raise ValueError(f"Source '{source_name}' not found in config")
+        source_results = [await gen_source_digest(source)]
+    else:
+        source_results = [
+            await gen_source_digest(source) for source in CONFIG["sources"]
+        ]
+
     source_results = [r for r in source_results if r is not None and len(r) > 0]
     result = """<html>
 <head>

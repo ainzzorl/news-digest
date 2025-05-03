@@ -6,6 +6,7 @@ from datetime import datetime
 
 import sys
 import asyncio
+import argparse
 
 
 def lambda_handler(event, context):
@@ -21,12 +22,20 @@ async def inner_lambda_handler(event, context):
 
 
 async def main():
+    parser = argparse.ArgumentParser(description="Generate news digest")
+    parser.add_argument("--gen", action="store_true", help="Generate digest")
+    parser.add_argument("--mail", action="store_true", help="Mail digest")
+    parser.add_argument("--upload", action="store_true", help="Upload digest")
+    parser.add_argument(
+        "--source", "-s", type=str, help="Generate digest for specific source only"
+    )
+    args = parser.parse_args()
+
     s3_path = "news-digests/" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".html"
 
-    if "gen" in sys.argv:
+    if args.gen:
         print("Generating digest")
-        digest = await gen_digest(s3_path)
-        # print(digest)
+        digest = await gen_digest(s3_path, source_name=args.source)
     else:
         print("Using dummy digest")
         digest = """\
@@ -44,13 +53,13 @@ async def main():
     with open(f"{Path.home()}/tmp/res.html", "w") as text_file:
         text_file.write(digest)
 
-    if "mail" in sys.argv:
+    if args.mail:
         print("Mailing digest")
         mail_digest(digest)
     else:
         print("Skipping mailing")
 
-    if "upload" in sys.argv:
+    if args.upload:
         print("Uploading digest")
         upload_digest(digest, s3_path)
     else:
