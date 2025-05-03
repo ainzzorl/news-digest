@@ -101,12 +101,29 @@ def gen_submission_digest(config, subreddit_name, submission):
     if submission.url.startswith("https://www.reddit.com/gallery/"):
         images = get_reddit_gallery_urls(submission)
         if images is not None:
-            as_images = 5
-            for image in images[:as_images]:
-                digest += f"<img src='{image}' style='max-width: {PREFERRED_MAX_IMAGE_WITH}px;'/>\n<br>"
-            if len(images) > as_images:
-                for image in images[as_images:]:
-                    digest += gen_href(image, image) + "\n<br>"
+            if len(images) > 3:
+                # Create a gallery view for more than 5 images
+                gallery_id = f"gallery-{submission.id}"
+                digest += f"""
+<div class="gallery-container" id="{gallery_id}">
+    <div class="gallery-nav">
+        <button onclick="prevImage('{gallery_id}')">Previous</button>
+        <span class="gallery-counter">1 / {len(images)}</span>
+        <button onclick="nextImage('{gallery_id}')">Next</button>
+    </div>
+    <div class="gallery-images">
+"""
+                for i, image in enumerate(images):
+                    display_style = "display: block;" if i == 0 else "display: none;"
+                    digest += f'<img src="{image}" style="max-width: {PREFERRED_MAX_IMAGE_WITH}px; {display_style}" class="gallery-image" data-index="{i}"/>\n'
+                digest += """
+    </div>
+</div>
+"""
+            else:
+                # Show all images directly if 5 or fewer
+                for image in images:
+                    digest += f"<img src='{image}' style='max-width: {PREFERRED_MAX_IMAGE_WITH}px;'/>\n<br>"
             return digest
 
     if submission.url.endswith(("jpg", "jpeg", "png", "gif")):

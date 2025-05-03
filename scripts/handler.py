@@ -73,6 +73,30 @@ async def gen_digest(upload_path, source_name=None, source_options=None):
             color: white;
         }
         }
+
+        /* Gallery styles */
+        .gallery-container {
+            margin: 10px 0;
+            max-width: 800px;
+            width: 100%;
+        }
+        .gallery-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            max-width: 800px;
+            width: 100%;
+        }
+        .gallery-counter {
+            font-weight: bold;
+        }
+        .gallery-images {
+            position: relative;
+        }
+        .gallery-image {
+            transition: opacity 0.3s ease-in-out;
+        }
     </style>
     <script>
     function toggleElement(id) {
@@ -82,6 +106,48 @@ async def gen_digest(upload_path, source_name=None, source_options=None):
         } else {
         content.style.display = "none";
         }
+    }
+
+    function updateGalleryCounter(galleryId, currentIndex, totalImages) {
+        const counter = document.querySelector(`#${galleryId} .gallery-counter`);
+        counter.textContent = `${currentIndex + 1} / ${totalImages}`;
+    }
+
+    function showImage(galleryId, index) {
+        const gallery = document.getElementById(galleryId);
+        const images = gallery.getElementsByClassName('gallery-image');
+        for (let i = 0; i < images.length; i++) {
+            images[i].style.display = i === index ? 'block' : 'none';
+        }
+        updateGalleryCounter(galleryId, index, images.length);
+    }
+
+    function nextImage(galleryId) {
+        const gallery = document.getElementById(galleryId);
+        const images = gallery.getElementsByClassName('gallery-image');
+        let currentIndex = -1;
+        for (let i = 0; i < images.length; i++) {
+            if (images[i].style.display === 'block') {
+                currentIndex = i;
+                break;
+            }
+        }
+        const nextIndex = (currentIndex + 1) % images.length;
+        showImage(galleryId, nextIndex);
+    }
+
+    function prevImage(galleryId) {
+        const gallery = document.getElementById(galleryId);
+        const images = gallery.getElementsByClassName('gallery-image');
+        let currentIndex = -1;
+        for (let i = 0; i < images.length; i++) {
+            if (images[i].style.display === 'block') {
+                currentIndex = i;
+                break;
+            }
+        }
+        const prevIndex = (currentIndex - 1 + images.length) % images.length;
+        showImage(galleryId, prevIndex);
     }
     </script>
 </head>
