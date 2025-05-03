@@ -194,6 +194,21 @@ def get_day(config, subreddit_name):
     return 1
 
 
+def get_submissions_per_subreddit(config, subreddit_name):
+    if (
+        subreddit_name in config["overrides"]
+        and "submissions_per_subreddit" in config["overrides"][subreddit_name]
+    ):
+        return config["overrides"][subreddit_name]["submissions_per_subreddit"]
+    if (
+        "extra" in config
+        and subreddit_name in config["extra"]
+        and "submissions_per_subreddit" in config["extra"][subreddit_name]
+    ):
+        return config["extra"][subreddit_name]["submissions_per_subreddit"]
+    return config["submissions_per_subreddit"]
+
+
 def gen_subreddit_digest(session, config, subreddit_name):
     frequency = get_frequency(config, subreddit_name)
     day = get_day(config, subreddit_name)
@@ -236,7 +251,7 @@ def gen_subreddit_digest(session, config, subreddit_name):
         digest += f"<p>Unable to list submissions: {e}</p>"
         return digest
 
-    submissions = submissions[: config["submissions_per_subreddit"]]
+    submissions = submissions[: get_submissions_per_subreddit(config, subreddit_name)]
 
     if not submissions:
         return None
