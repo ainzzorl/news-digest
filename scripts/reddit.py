@@ -1,7 +1,9 @@
 from datetime import datetime, date
 import asyncpraw
+import asyncpraw.models
 from calendar import monthrange
 import hashlib
+
 
 from util import *
 
@@ -82,7 +84,7 @@ def string_to_int_hash(s: str):
     return int(hashlib.md5(s.encode()).hexdigest(), 16)
 
 
-def gen_submission_digest(config, subreddit_name, submission):
+def gen_submission_digest(config, subreddit_name: str, submission: asyncpraw.models.Submission):
     digest = f"{submission.title} (score: {submission.score})\n<br>"
     if subreddit_name in config["showself"] and submission.is_self:
         digest += submission.selftext + "\n<br>"
@@ -138,7 +140,7 @@ def gen_submission_digest(config, subreddit_name, submission):
     return digest
 
 
-def get_vreddit(submission):
+def get_vreddit(submission: asyncpraw.models.Submission):
     try:
         if hasattr(submission, "crosspost_parent"):
             secure_media = submission.crosspost_parent_list[0]["secure_media"]
@@ -151,7 +153,7 @@ def get_vreddit(submission):
         return None
 
 
-def get_reddit_gallery_urls(submission):
+def get_reddit_gallery_urls(submission: asyncpraw.models.Submission):
     try:
         if hasattr(submission, "crosspost_parent"):
             media_metadata = submission.crosspost_parent_list[0]["media_metadata"]
@@ -175,7 +177,7 @@ def get_reddit_gallery_urls(submission):
         return None
 
 
-def get_frequency(config, subreddit_name):
+def get_frequency(config, subreddit_name: str):
     if (
         subreddit_name in config["overrides"]
         and "frequency" in config["overrides"][subreddit_name]
@@ -184,7 +186,7 @@ def get_frequency(config, subreddit_name):
     return config["frequency"]
 
 
-def get_day(config, subreddit_name):
+def get_day(config, subreddit_name: str):
     if (
         subreddit_name in config["overrides"]
         and "day" in config["overrides"][subreddit_name]
@@ -193,7 +195,7 @@ def get_day(config, subreddit_name):
     return 1
 
 
-def get_submissions_per_subreddit(config, subreddit_name):
+def get_submissions_per_subreddit(config, subreddit_name: str):
     if (
         subreddit_name in config["overrides"]
         and "submissions_per_subreddit" in config["overrides"][subreddit_name]
@@ -202,11 +204,11 @@ def get_submissions_per_subreddit(config, subreddit_name):
     return config["submissions_per_subreddit"]
 
 
-async def gen_subreddit_digest(session, config, subreddit_name):
+async def gen_subreddit_digest(session: asyncpraw.Reddit, config, subreddit_name: str):
     frequency = get_frequency(config, subreddit_name)
     day = get_day(config, subreddit_name)
     subreddit = await session.subreddit(subreddit_name)
-    submissions_gen = subreddit.top(frequency, limit=50)  # Set a reasonable limit
+    submissions_gen = subreddit.top(time_filter=frequency, limit=50)  # Set a reasonable limit
 
     spoiler = False
     if (
@@ -230,7 +232,7 @@ async def gen_subreddit_digest(session, config, subreddit_name):
         frequency_readable = f"{frequency}ly"
 
     try:
-        submissions = []
+        submissions: list[asyncpraw.models.Submission] = []
         async for submission in submissions_gen:
             if (
                 datetime.now() - datetime.utcfromtimestamp(submission.created_utc)
