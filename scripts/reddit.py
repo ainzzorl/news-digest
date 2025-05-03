@@ -41,11 +41,6 @@ def get_subreddits(session: praw.Reddit, config, source_options=None):
         day = get_day(config, subreddit.display_name)
         sub_candidates.append((subreddit.display_name, frequency, day))
 
-    if "extra" in config:
-        for subreddit_name, c in config["extra"].items():
-            day = get_day(config, subreddit_name)
-            sub_candidates.append((subreddit_name, c["frequency"], day))
-
     print("Sub candidates:")
     duration_priorities = {"day": 1, "week": 2, "month": 3}
     sub_candidates = sorted(sub_candidates, key=lambda s: duration_priorities[s[1]])
@@ -170,12 +165,6 @@ def get_frequency(config, subreddit_name):
         and "frequency" in config["overrides"][subreddit_name]
     ):
         return config["overrides"][subreddit_name]["frequency"]
-    if (
-        "extra" in config
-        and subreddit_name in config["extra"]
-        and "frequency" in config["extra"][subreddit_name]
-    ):
-        return config["extra"][subreddit_name]["frequency"]
     return config["frequency"]
 
 
@@ -185,12 +174,6 @@ def get_day(config, subreddit_name):
         and "day" in config["overrides"][subreddit_name]
     ):
         return config["overrides"][subreddit_name]["day"]
-    if (
-        "extra" in config
-        and subreddit_name in config["extra"]
-        and "day" in config["extra"][subreddit_name]
-    ):
-        return config["extra"][subreddit_name]["day"]
     return 1
 
 
@@ -200,12 +183,6 @@ def get_submissions_per_subreddit(config, subreddit_name):
         and "submissions_per_subreddit" in config["overrides"][subreddit_name]
     ):
         return config["overrides"][subreddit_name]["submissions_per_subreddit"]
-    if (
-        "extra" in config
-        and subreddit_name in config["extra"]
-        and "submissions_per_subreddit" in config["extra"][subreddit_name]
-    ):
-        return config["extra"][subreddit_name]["submissions_per_subreddit"]
     return config["submissions_per_subreddit"]
 
 
