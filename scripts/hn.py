@@ -7,7 +7,7 @@ import json
 from util import *
 
 
-def gen_hn_digest(config):
+def gen_hn_digest(config, source_options=None):
     feed = feedparser.parse(config["url"])
     print(feed.feed)
 

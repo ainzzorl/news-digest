@@ -14,16 +14,16 @@ from telegram import *
 CONFIG: dict[str, Any] = {}
 
 
-async def gen_source_digest(config) -> str:
-    print(f"Generating source digest, config: {config}")
+async def gen_source_digest(config, source_options=None) -> str:
+    print(f"Generating source digest, config: {config}, options: {source_options}")
     if config["type"] == "rss":
-        return gen_rss_digest(config)
+        return gen_rss_digest(config, source_options)
     elif config["type"] == "reddit":
-        return gen_reddit_digest(config)
+        return gen_reddit_digest(config, source_options)
     elif config["type"] == "telegram":
-        return await gen_telegram_digest(config)
+        return await gen_telegram_digest(config, source_options)
     elif config["type"] == "hn":
-        return gen_hn_digest(config)
+        return gen_hn_digest(config, source_options)
     else:
         raise Exception(f"Unknown type: {config['type']}")
 
@@ -41,17 +41,18 @@ def load_config():
             exit(1)
 
 
-async def gen_digest(upload_path, source_name=None):
+async def gen_digest(upload_path, source_name=None, source_options=None):
     load_config()
     if source_name:
         # Find the specific source
         source = next((s for s in CONFIG["sources"] if s["name"] == source_name), None)
         if not source:
             raise ValueError(f"Source '{source_name}' not found in config")
-        source_results = [await gen_source_digest(source)]
+        source_results = [await gen_source_digest(source, source_options)]
     else:
         source_results = [
-            await gen_source_digest(source) for source in CONFIG["sources"]
+            await gen_source_digest(source, source_options)
+            for source in CONFIG["sources"]
         ]
 
     source_results = [r for r in source_results if r is not None and len(r) > 0]

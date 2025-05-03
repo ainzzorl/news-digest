@@ -9,7 +9,7 @@ import base64
 from util import *
 
 
-async def gen_telegram_digest(config):
+async def gen_telegram_digest(config, source_options=None):
     res = ""
     res += "<h2>Telegram</h2>"
 

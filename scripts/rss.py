@@ -6,7 +6,7 @@ import re
 from util import *
 
 
-def gen_rss_digest(config):
+def gen_rss_digest(config, source_options=None):
     current_day = datetime.now().weekday() + 1
     if current_day not in config["days"]:
         print(

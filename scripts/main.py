@@ -27,7 +27,15 @@ async def main():
     parser.add_argument("--mail", action="store_true", help="Mail digest")
     parser.add_argument("--upload", action="store_true", help="Upload digest")
     parser.add_argument(
-        "--source", "-s", type=str, help="Generate digest for specific source only"
+        "--source",
+        "-s",
+        type=str,
+        help="Generate digest for specific source type (e.g. reddit, rss)",
+    )
+    parser.add_argument(
+        "--subreddits",
+        type=str,
+        help="Comma-separated list of subreddits to include (only works with reddit source)",
     )
     parser.add_argument("--output", "-o", type=str, help="Output file path")
     args = parser.parse_args()
@@ -36,7 +44,12 @@ async def main():
 
     if args.gen:
         print("Generating digest")
-        digest = await gen_digest(s3_path, source_name=args.source)
+        source_options = {}
+        if args.subreddits:
+            source_options["subreddits"] = args.subreddits.split(",")
+        digest = await gen_digest(
+            s3_path, source_name=args.source, source_options=source_options
+        )
     else:
         print("Using dummy digest")
         digest = """\

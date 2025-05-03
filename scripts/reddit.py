@@ -6,7 +6,11 @@ import hashlib
 from util import *
 
 
-def get_subreddits(session: praw.Reddit, config):
+def get_subreddits(session: praw.Reddit, config, source_options=None):
+    # If specific subreddits are requested, use only those
+    if source_options and "subreddits" in source_options:
+        return source_options["subreddits"]
+
     day_of_week = datetime.now().weekday() + 1  # 1-7
     day_of_month = datetime.now().day - 1  # 0-30
     _, days_in_month = monthrange(datetime.now().year, datetime.now().month)
@@ -258,7 +262,7 @@ def gen_subreddit_digest(session, config, subreddit_name):
     return digest
 
 
-def gen_reddit_digest(config):
+def gen_reddit_digest(config, source_options=None):
     session = praw.Reddit(
         user_agent="USERAGENT",
         client_id=config["client_id"],
@@ -267,7 +271,7 @@ def gen_reddit_digest(config):
         password=config["password"],
     )
 
-    subreddits = get_subreddits(session, config)
+    subreddits = get_subreddits(session, config, source_options)
 
     digest = f"<h2>Reddit ({len(subreddits)} subreddits)</h2>"
 
