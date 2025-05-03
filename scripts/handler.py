@@ -172,7 +172,7 @@ def mail_digest(digest):
     service.login(CONFIG["mail"]["smtp"]["user"], CONFIG["mail"]["smtp"]["password"])
 
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = "News Digest"
+    msg["Subject"] = f"News Digest - {datetime.now().strftime('%Y-%m-%d')}"
     msg["From"] = CONFIG["mail"]["from"]
     msg["To"] = CONFIG["mail"]["to"]
     part1 = MIMEText(digest, "html")
