@@ -1,12 +1,12 @@
 from datetime import datetime, date
-import praw
+import asyncpraw
 from calendar import monthrange
 import hashlib
 
 from util import *
 
 
-def get_subreddits(session: praw.Reddit, config, source_options=None):
+async def get_subreddits(session: asyncpraw.Reddit, config, source_options=None):
     # If specific subreddits are requested, use only those
     if source_options and "subreddits" in source_options:
         return source_options["subreddits"]
@@ -34,7 +34,7 @@ def get_subreddits(session: praw.Reddit, config, source_options=None):
     print(f"Days for monthly: {days_for_monthly}")
 
     sub_candidates = []
-    for subreddit in list(session.user.subreddits(limit=None)):  # type: ignore
+    async for subreddit in session.user.subreddits(limit=500):  # Set a reasonable limit
         if subreddit.display_name in config["exclude"]:
             continue
         frequency = get_frequency(config, subreddit.display_name)
@@ -72,7 +72,6 @@ def get_subreddits(session: praw.Reddit, config, source_options=None):
 
         if take:
             subs.append(subreddit_name)
-            # print(f'Taking subreddit {subreddit_name}, frequency: {frequency}')
 
     print(f"Selected subreddits: {subs}")
     return subs
@@ -203,10 +202,11 @@ def get_submissions_per_subreddit(config, subreddit_name):
     return config["submissions_per_subreddit"]
 
 
-def gen_subreddit_digest(session, config, subreddit_name):
+async def gen_subreddit_digest(session, config, subreddit_name):
     frequency = get_frequency(config, subreddit_name)
     day = get_day(config, subreddit_name)
-    submissions = session.subreddit(subreddit_name).top(frequency)
+    subreddit = await session.subreddit(subreddit_name)
+    submissions_gen = subreddit.top(frequency, limit=50)  # Set a reasonable limit
 
     spoiler = False
     if (
@@ -222,7 +222,6 @@ def gen_subreddit_digest(session, config, subreddit_name):
     elif frequency == "month":
         max_time_diff = 86400 * 31 * 2
     else:
-        # print(f"Unknown frequency: {frequency}")
         exit(1)
 
     if frequency == "day":
@@ -231,21 +230,19 @@ def gen_subreddit_digest(session, config, subreddit_name):
         frequency_readable = f"{frequency}ly"
 
     try:
-        submissions = [
-            s
-            for s in submissions
+        submissions = []
+        async for submission in submissions_gen:
             if (
-                datetime.now() - datetime.utcfromtimestamp(s.created_utc)
-            ).total_seconds()
-            <= max_time_diff
-        ]
+                datetime.now() - datetime.utcfromtimestamp(submission.created_utc)
+            ).total_seconds() <= max_time_diff:
+                submissions.append(submission)
+            if len(submissions) >= get_submissions_per_subreddit(config, subreddit_name):
+                break
     except Exception as e:
         print(f"Unable to list submissions for {subreddit_name}: {e}")
         digest = f"<h4>/r/{subreddit_name} ({frequency_readable})</h4>"
         digest += f"<p>Unable to list submissions: {e}</p>"
         return digest
-
-    submissions = submissions[: get_submissions_per_subreddit(config, subreddit_name)]
 
     if not submissions:
         return None
@@ -271,8 +268,8 @@ def gen_subreddit_digest(session, config, subreddit_name):
     return digest
 
 
-def gen_reddit_digest(config, source_options=None):
-    session = praw.Reddit(
+async def gen_reddit_digest(config, source_options=None):
+    session = asyncpraw.Reddit(
         user_agent="USERAGENT",
         client_id=config["client_id"],
         client_secret=config["secret"],
@@ -280,13 +277,12 @@ def gen_reddit_digest(config, source_options=None):
         password=config["password"],
     )
 
-    subreddits = get_subreddits(session, config, source_options)
-
-    digest = f"<h2>Reddit ({len(subreddits)} subreddits)</h2>"
-
-    subreddit_digests = [gen_subreddit_digest(session, config, s) for s in subreddits]
-    subreddit_digests = [d for d in subreddit_digests if d is not None]
-
-    digest += "\n<br>".join(subreddit_digests)
-
-    return digest
+    try:
+        subreddits = await get_subreddits(session, config, source_options)
+        digest = f"<h2>Reddit ({len(subreddits)} subreddits)</h2>"
+        subreddit_digests = [await gen_subreddit_digest(session, config, s) for s in subreddits]
+        subreddit_digests = [d for d in subreddit_digests if d is not None]
+        digest += "\n<br>".join(subreddit_digests)
+        return digest
+    finally:
+        await session.close()

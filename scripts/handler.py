@@ -19,7 +19,7 @@ async def gen_source_digest(config, source_options=None) -> str:
     if config["type"] == "rss":
         return gen_rss_digest(config, source_options)
     elif config["type"] == "reddit":
-        return gen_reddit_digest(config, source_options)
+        return await gen_reddit_digest(config, source_options)
     elif config["type"] == "telegram":
         return await gen_telegram_digest(config, source_options)
     elif config["type"] == "hn":
