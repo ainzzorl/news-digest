@@ -26,3 +26,7 @@ lambda-deploy:
 .PHONY: lambda-invoke
 lambda-invoke:
 	aws --region us-west-2 lambda invoke --function-name news-digest-lambda /dev/null
+
+.PHONY: lambda-logs
+lambda-logs:
+	./scripts/lambda_logs.sh
