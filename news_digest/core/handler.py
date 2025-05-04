@@ -6,10 +6,10 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import boto3
 
-from hn import *
-from reddit import *
-from rss import *
-from telegram import *
+from news_digest.core.hn import *
+from news_digest.core.reddit import *
+from news_digest.core.rss import *
+from news_digest.core.telegram import *
 
 CONFIG: dict[str, Any] = {}
 

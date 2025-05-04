@@ -3,7 +3,7 @@ from datetime import datetime
 from time import mktime
 import re
 
-from util import *
+from news_digest.utils.util import *
 
 
 def gen_rss_digest(config, source_options=None):

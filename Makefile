@@ -12,6 +12,7 @@ lambda-package:
 	mkdir aws/function-dir
 
 	cp scripts/*.py aws/function-dir
+	cp -r news_digest aws/function-dir
 	cp config.yml aws/function-dir
 	cp session_name.session aws/function-dir
 	cp -R package/* aws/function-dir

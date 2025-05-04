@@ -4,7 +4,7 @@ from time import mktime
 import urllib.request
 import json
 
-from util import *
+from news_digest.utils.util import *
 
 
 def gen_hn_digest(config, source_options=None):

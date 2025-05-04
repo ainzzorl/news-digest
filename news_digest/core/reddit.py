@@ -5,7 +5,7 @@ from calendar import monthrange
 import hashlib
 
 
-from util import *
+from news_digest.utils.util import *
 
 
 async def get_subreddits(session: asyncpraw.Reddit, config, source_options=None):

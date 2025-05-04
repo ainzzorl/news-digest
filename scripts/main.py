@@ -1,6 +1,6 @@
-from handler import gen_digest
-from handler import mail_digest
-from handler import upload_digest
+from news_digest.core.handler import gen_digest
+from news_digest.core.handler import mail_digest
+from news_digest.core.handler import upload_digest
 from pathlib import Path
 from datetime import datetime
 

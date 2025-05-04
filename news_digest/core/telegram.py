@@ -6,7 +6,7 @@ import telethon
 import shutil
 import base64
 
-from util import *
+from news_digest.utils.util import *
 
 
 async def gen_telegram_digest(config, source_options=None):
