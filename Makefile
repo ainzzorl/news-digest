@@ -1,3 +1,9 @@
+.PHONY: lambda-install-packages
+lambda-install-packages:
+	rm -rf package/
+	poetry export -f requirements.txt --without-hashes > aws/requirements.txt
+	pip install -r aws/requirements.txt -t package/
+
 .PHONY: lambda-package
 lambda-package:
 	mkdir -p aws
