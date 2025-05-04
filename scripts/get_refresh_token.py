@@ -1,18 +1,5 @@
 import yaml
-import feedparser
-from datetime import datetime
-from time import mktime
-import html2text
-import re
-import smtplib
-from email.message import EmailMessage
-import ssl
-import os
-from googleapiclient.discovery import build
-from googleapiclient import errors, discovery
 from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from oauth2client import client, tools, file
 import pickle
 
 SCOPES = "https://www.googleapis.com/auth/gmail.send"
