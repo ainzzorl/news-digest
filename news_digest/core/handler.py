@@ -14,7 +14,7 @@ from news_digest.core.telegram import *
 CONFIG: dict[str, Any] = {}
 
 
-async def gen_source_digest(config, source_options=None) -> str:
+async def gen_source_digest(config, source_options=None, global_config=None) -> str:
     print(f"Generating source digest, config: {config}, options: {source_options}")
     if config["type"] == "rss":
         return gen_rss_digest(config, source_options)
@@ -23,7 +23,7 @@ async def gen_source_digest(config, source_options=None) -> str:
     elif config["type"] == "telegram":
         return await gen_telegram_digest(config, source_options)
     elif config["type"] == "hn":
-        return gen_hn_digest(config, source_options)
+        return gen_hn_digest(config, source_options, global_config)
     else:
         raise Exception(f"Unknown type: {config['type']}")
 
@@ -48,10 +48,10 @@ async def gen_digest(upload_path, source_name=None, source_options=None):
         source = next((s for s in CONFIG["sources"] if s["name"] == source_name), None)
         if not source:
             raise ValueError(f"Source '{source_name}' not found in config")
-        source_results = [await gen_source_digest(source, source_options)]
+        source_results = [await gen_source_digest(source, source_options, CONFIG)]
     else:
         source_results = [
-            await gen_source_digest(source, source_options)
+            await gen_source_digest(source, source_options, CONFIG)
             for source in CONFIG["sources"]
         ]
 
