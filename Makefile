@@ -2,6 +2,9 @@
 lambda-install-packages:
 	rm -rf package/
 	poetry export -f requirements.txt --without-hashes > aws/requirements.txt
+	# Install grpc with Linux platform
+	pip install --platform manylinux2014_x86_64 --only-binary=:all: --target package/ grpcio==1.71.0
+	# Install other dependencies
 	pip install -r aws/requirements.txt -t package/
 
 .PHONY: lambda-package
@@ -16,6 +19,13 @@ lambda-package:
 	cp config.yml aws/function-dir
 	cp session_name.session aws/function-dir
 	cp -R package/* aws/function-dir
+
+	# Remove macOS-specific binaries and other unnecessary files
+	find aws/function-dir -name "*.dylib" -type f -delete  # macOS dynamic libraries
+	find aws/function-dir -name "*.pyc" -type f -delete    # Python bytecode
+	find aws/function-dir -name "__pycache__" -type d -exec rm -rf {} +  # Python cache
+	find aws/function-dir -name "*.dist-info" -type d -exec rm -rf {} +  # Package metadata
+	find aws/function-dir -name "*.egg-info" -type d -exec rm -rf {} +   # Package metadata
 
 	(cd aws/function-dir; zip -r ../function.zip .)
 
