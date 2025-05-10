@@ -8,7 +8,7 @@ import hashlib
 from news_digest.utils.util import *
 
 
-async def get_subreddits(session: asyncpraw.Reddit, config, source_options=None):
+async def get_subreddits(session: asyncpraw.Reddit, config, source_options=None) -> list[str]:
     # If specific subreddits are requested, use only those
     if source_options and "subreddits" in source_options:
         return source_options["subreddits"]
@@ -35,7 +35,12 @@ async def get_subreddits(session: asyncpraw.Reddit, config, source_options=None)
                 break
     print(f"Days for monthly: {days_for_monthly}")
 
-    sub_candidates = []
+    sub_candidates: list[tuple[str, str, int]] = []
+    # r/all is a special case. It's not returned by session.user.subreddits,
+    # so we need to add it manually if it's configured.
+    if 'all' in config['overrides']:
+        sub_candidates.append(('all', get_frequency(config, 'all'), get_day(config, 'all')))
+
     async for subreddit in session.user.subreddits(limit=500):  # Set a reasonable limit
         if subreddit.display_name in config["exclude"]:
             continue
@@ -48,7 +53,7 @@ async def get_subreddits(session: asyncpraw.Reddit, config, source_options=None)
     sub_candidates = sorted(sub_candidates, key=lambda s: duration_priorities[s[1]])
     print(sub_candidates)
 
-    subs = []
+    subs: list[str] = []
     for subreddit_name, frequency, day in sub_candidates:
         take = False
 
