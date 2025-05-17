@@ -130,13 +130,13 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
         else:
             user_id = "undefined"
             full_user = None
-        if user_id in config["silenced_user_ids"]:
-            posts_str += f"<span><i>Silenced user: {user_id}</i></span>"
-            posts_str += "<br>\n"
-            continue
 
         user_info_suffix = ""
         if full_user is not None:
+            if full_user.username in config["silenced_user_ids"]:
+                posts_str += f"<span><i>Silenced user: {full_user.username}</i></span>"
+                posts_str += "<br>\n"
+                continue
             user_info_suffix += f" - {full_user.username}"
             if full_user.first_name is not None:
                 user_info_suffix += f" ({full_user.first_name}"
