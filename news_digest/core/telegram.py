@@ -95,7 +95,7 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
     posts_str = ""
     total_posts = 0
 
-    selected_posts = []
+    selected_posts: list[telethon.tl.patched.Message] = []
     for post in posts.messages:
         ago = datetime.now().astimezone() - post.date
         days = (
@@ -125,7 +125,7 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
             continue
 
         if hasattr(post, "from_id") and hasattr(post.from_id, "user_id"):
-            user_id = post.from_id.user_id
+            user_id = post.from_id.user_id  # type: ignore
             full_user = await get_telegram_user(client, user_id)
         else:
             user_id = "undefined"
