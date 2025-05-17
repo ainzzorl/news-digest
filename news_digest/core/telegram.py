@@ -52,6 +52,59 @@ async def gen_telegram_digest(config, source_options=None):
     return res
 
 
+def format_telegram_message(post: telethon.tl.patched.Message) -> str:
+    """
+    Format a Telegram message by applying HTML formatting based on message entities.
+    Also handles newline conversion to HTML breaks.
+
+
+    Returns:
+        Formatted message with HTML tags and line breaks
+    """
+    post_message = str(post.message)
+    if not post.entities:
+        return post_message.replace("\n", "<br>\n")
+
+    offset_shift = 0
+    for entity in sorted(post.entities, key=lambda e: e.offset):
+        start = entity.offset + offset_shift
+        end = start + entity.length
+
+        if isinstance(
+            entity,
+            (telethon.types.MessageEntityBold, telethon.types.MessageEntityStrike),
+        ):
+            tag = "b" if isinstance(entity, telethon.types.MessageEntityBold) else "s"
+            post_message = f"{post_message[:start]}<{tag}>{post_message[start:end]}</{tag}>{post_message[end:]}"
+            offset_shift += len(f"<{tag}>") + len(f"</{tag}>")
+        elif isinstance(entity, telethon.types.MessageEntityItalic):
+            post_message = f"{post_message[:start]}<i>{post_message[start:end]}</i>{post_message[end:]}"
+            offset_shift += len("<i>") + len("</i>")
+        elif isinstance(
+            entity,
+            (telethon.types.MessageEntityUrl, telethon.types.MessageEntityTextUrl),
+        ):
+            url = (
+                entity.url
+                if isinstance(entity, telethon.types.MessageEntityTextUrl)
+                else post_message[start:end]
+            )
+            text = post_message[start:end]
+            post_message = (
+                f"{post_message[:start]}<a href='{url}'>{text}</a>{post_message[end:]}"
+            )
+            offset_shift += len(f"<a href='{url}'>") + len("</a>")
+        elif isinstance(entity, telethon.types.MessageEntityMention):
+            username = post_message[start:end]
+            url = f"https://t.me/{username[1:]}"  # Remove @ from username
+            post_message = f"{post_message[:start]}<a href='{url}'>{username}</a>{post_message[end:]}"
+            offset_shift += len(f"<a href='{url}'>") + len("</a>")
+        else:
+            print("Unknown entity: ", entity)
+
+    return post_message.replace("\n", "<br>\n")
+
+
 async def gen_telegram_channel_digest(config, client, channel_entity):
     res = ""
     print(f"Processing chat: {channel_entity.title}, channel id: {channel_entity.id}")
@@ -150,7 +203,7 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
             url = "https://t.me/" + str(usr) + "/" + str(post.id)
             posts_str += gen_href(url, url) + "<br>\n"
 
-        post_message = str(post.message).replace("\n", "<br>\n")
+        post_message = format_telegram_message(post)
         posts_str += post_message
         posts_str += "<br>\n"
 
