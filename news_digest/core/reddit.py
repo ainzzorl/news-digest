@@ -8,7 +8,9 @@ import hashlib
 from news_digest.utils.util import *
 
 
-async def get_subreddits(session: asyncpraw.Reddit, config, source_options=None) -> list[str]:
+async def get_subreddits(
+    session: asyncpraw.Reddit, config, source_options=None
+) -> list[str]:
     # If specific subreddits are requested, use only those
     if source_options and "subreddits" in source_options:
         return source_options["subreddits"]
@@ -38,8 +40,10 @@ async def get_subreddits(session: asyncpraw.Reddit, config, source_options=None)
     sub_candidates: list[tuple[str, str, int]] = []
     # r/all is a special case. It's not returned by session.user.subreddits,
     # so we need to add it manually if it's configured.
-    if 'all' in config['overrides']:
-        sub_candidates.append(('all', get_frequency(config, 'all'), get_day(config, 'all')))
+    if "all" in config["overrides"]:
+        sub_candidates.append(
+            ("all", get_frequency(config, "all"), get_day(config, "all"))
+        )
 
     async for subreddit in session.user.subreddits(limit=500):  # Set a reasonable limit
         if subreddit.display_name in config["exclude"]:
@@ -89,7 +93,9 @@ def string_to_int_hash(s: str):
     return int(hashlib.md5(s.encode()).hexdigest(), 16)
 
 
-def gen_submission_digest(config, subreddit_name: str, submission: asyncpraw.models.Submission):
+def gen_submission_digest(
+    config, subreddit_name: str, submission: asyncpraw.models.Submission
+):
     digest = f"{submission.title} (score: {submission.score})\n<br>"
     if subreddit_name in config["showself"] and submission.is_self:
         digest += submission.selftext + "\n<br>"
@@ -213,7 +219,9 @@ async def gen_subreddit_digest(session: asyncpraw.Reddit, config, subreddit_name
     frequency = get_frequency(config, subreddit_name)
     day = get_day(config, subreddit_name)
     subreddit = await session.subreddit(subreddit_name)
-    submissions_gen = subreddit.top(time_filter=frequency, limit=50)  # Set a reasonable limit
+    submissions_gen = subreddit.top(
+        time_filter=frequency, limit=50
+    )  # Set a reasonable limit
 
     spoiler = False
     if (
@@ -243,7 +251,9 @@ async def gen_subreddit_digest(session: asyncpraw.Reddit, config, subreddit_name
                 datetime.now() - datetime.utcfromtimestamp(submission.created_utc)
             ).total_seconds() <= max_time_diff:
                 submissions.append(submission)
-            if len(submissions) >= get_submissions_per_subreddit(config, subreddit_name):
+            if len(submissions) >= get_submissions_per_subreddit(
+                config, subreddit_name
+            ):
                 break
     except Exception as e:
         print(f"Unable to list submissions for {subreddit_name}: {e}")
@@ -275,7 +285,7 @@ async def gen_subreddit_digest(session: asyncpraw.Reddit, config, subreddit_name
     return digest
 
 
-async def gen_reddit_digest(config, source_options=None):
+async def gen_reddit_digest(config, source_options=None) -> str:
     session = asyncpraw.Reddit(
         user_agent="USERAGENT",
         client_id=config["client_id"],
@@ -286,8 +296,12 @@ async def gen_reddit_digest(config, source_options=None):
 
     try:
         subreddits = await get_subreddits(session, config, source_options)
+        if len(subreddits) == 0:
+            return ""
         digest = f"<h2>Reddit ({len(subreddits)} subreddits)</h2>"
-        subreddit_digests = [await gen_subreddit_digest(session, config, s) for s in subreddits]
+        subreddit_digests = [
+            await gen_subreddit_digest(session, config, s) for s in subreddits
+        ]
         subreddit_digests = [d for d in subreddit_digests if d is not None]
         digest += "\n<br>".join(subreddit_digests)
         return digest
