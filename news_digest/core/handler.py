@@ -56,48 +56,7 @@ async def gen_digest(upload_path, source_name=None, source_options=None):
         ]
 
     source_results = [r for r in source_results if r is not None and len(r) > 0]
-    result = """<html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        /* Default (light mode) styles */
-        body {
-        background-color: white;
-        color: black;
-        }
-
-        /* Dark mode styles */
-        @media (prefers-color-scheme: dark) {
-        body {
-            background-color: #121212;
-            color: white;
-        }
-        }
-
-        /* Gallery styles */
-        .gallery-container {
-            margin: 10px 0;
-            max-width: 800px;
-            width: 100%;
-        }
-        .gallery-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            max-width: 800px;
-            width: 100%;
-        }
-        .gallery-counter {
-            font-weight: bold;
-        }
-        .gallery-images {
-            position: relative;
-        }
-        .gallery-image {
-            transition: opacity 0.3s ease-in-out;
-        }
-    </style>
+    script_src = """
     <script>
     function toggleElement(id) {
         var content = document.getElementById(id);
@@ -149,7 +108,54 @@ async def gen_digest(upload_path, source_name=None, source_options=None):
         const prevIndex = (currentIndex - 1 + images.length) % images.length;
         showImage(galleryId, prevIndex);
     }
-    </script>
+    </script>"""
+    style_src = """
+   <style>
+        /* Default (light mode) styles */
+        body {
+        background-color: white;
+        color: black;
+        }
+
+        /* Dark mode styles */
+        @media (prefers-color-scheme: dark) {
+        body {
+            background-color: #121212;
+            color: white;
+        }
+        }
+
+        /* Gallery styles */
+        .gallery-container {
+            margin: 10px 0;
+            max-width: 800px;
+            width: 100%;
+        }
+        .gallery-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            max-width: 800px;
+            width: 100%;
+        }
+        .gallery-counter {
+            font-weight: bold;
+        }
+        .gallery-images {
+            position: relative;
+        }
+        .gallery-image {
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
+    """
+    result = f"""<html>
+<head>
+    <title>News Digest - {datetime.now().strftime('%Y-%m-%d')}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {style_src}
+    {script_src}
 </head>
     <body>"""
     if upload_path:
