@@ -18,9 +18,6 @@ async def gen_telegram_digest(config, source_options=None):
     async with TelegramClient(
         "/tmp/session_name.session", config["api_id"], config["api_hash"]
     ) as client:
-        # For testing one channel
-        # return await gen_telegram_channel_digest(config, client, <id>)
-
         channel_id_to_text = {}
 
         async for dialog in client.iter_dialogs():
@@ -34,6 +31,10 @@ async def gen_telegram_digest(config, source_options=None):
             ):
                 print(f"Skipping {dialog.id}, wrong type")
                 continue
+
+            # For testing one channel
+            # if channel_entity.id != <id>:
+            #     continue
 
             channel_id_to_text[channel_entity.id] = await gen_telegram_channel_digest(
                 config, client, channel_entity
@@ -65,8 +66,15 @@ def format_telegram_message(post: telethon.tl.patched.Message) -> str:
     if not post.entities:
         return post_message.replace("\n", "<br>\n")
 
-    offset_shift = 0
+    # Tuples of (position, length)
+    offsets: list[tuple[int, int]] = []
+
     for entity in sorted(post.entities, key=lambda e: e.offset):
+        offset_shift = 0
+        for o in offsets:
+            if entity.offset >= o[0]:
+                offset_shift += o[1]
+
         start = entity.offset + offset_shift
         end = start + entity.length
 
@@ -76,10 +84,12 @@ def format_telegram_message(post: telethon.tl.patched.Message) -> str:
         ):
             tag = "b" if isinstance(entity, telethon.types.MessageEntityBold) else "s"
             post_message = f"{post_message[:start]}<{tag}>{post_message[start:end]}</{tag}>{post_message[end:]}"
-            offset_shift += len(f"<{tag}>") + len(f"</{tag}>")
+            offsets.append((entity.offset, len(f"<{tag}>")))
+            offsets.append((entity.offset + entity.length, len(f"</{tag}>")))
         elif isinstance(entity, telethon.types.MessageEntityItalic):
             post_message = f"{post_message[:start]}<i>{post_message[start:end]}</i>{post_message[end:]}"
-            offset_shift += len("<i>") + len("</i>")
+            offsets.append((entity.offset, len("<i>")))
+            offsets.append((entity.offset + entity.length, len("</i>")))
         elif isinstance(
             entity,
             (telethon.types.MessageEntityUrl, telethon.types.MessageEntityTextUrl),
@@ -93,12 +103,14 @@ def format_telegram_message(post: telethon.tl.patched.Message) -> str:
             post_message = (
                 f"{post_message[:start]}<a href='{url}'>{text}</a>{post_message[end:]}"
             )
-            offset_shift += len(f"<a href='{url}'>") + len("</a>")
+            offsets.append((entity.offset, len(f"<a href='{url}'>")))
+            offsets.append((entity.offset + entity.length, len("</a>")))
         elif isinstance(entity, telethon.types.MessageEntityMention):
             username = post_message[start:end]
             url = f"https://t.me/{username[1:]}"  # Remove @ from username
             post_message = f"{post_message[:start]}<a href='{url}'>{username}</a>{post_message[end:]}"
-            offset_shift += len(f"<a href='{url}'>") + len("</a>")
+            offsets.append((entity.offset, len(f"<a href='{url}'>")))
+            offsets.append((entity.offset + entity.length, len("</a>")))
         else:
             print("Unknown entity: ", entity)
 
