@@ -27,7 +27,7 @@ def gen_rss_digest(config, source_options=None):
             and (
                 datetime.now() - datetime.fromtimestamp(mktime(item.published_parsed))  # type: ignore
             ).total_seconds()
-            <= config["max_time_diff_seconds"]
+            <= config["max_time_diff_days"] * 86400
         )
     ]
 
