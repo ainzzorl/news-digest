@@ -111,6 +111,8 @@ def format_telegram_message(post: telethon.tl.patched.Message) -> str:
             post_message = f"{post_message[:start]}<a href='{url}'>{username}</a>{post_message[end:]}"
             offsets.append((entity.offset, len(f"<a href='{url}'>")))
             offsets.append((entity.offset + entity.length, len("</a>")))
+        elif isinstance(entity, telethon.types.MessageEntityCustomEmoji):
+            offsets.append((entity.offset, -1))
         else:
             print("Unknown entity: ", entity)
 
