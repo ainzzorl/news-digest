@@ -40,3 +40,7 @@ lambda-invoke:
 .PHONY: lambda-logs
 lambda-logs:
 	./scripts/lambda_logs.sh
+
+.PHONY: test
+test:
+	python -m unittest discover tests
