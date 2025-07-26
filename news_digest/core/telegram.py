@@ -5,8 +5,57 @@ from telethon.tl.functions.users import GetFullUserRequest
 import telethon
 import shutil
 import base64
+import regex
 
 from news_digest.utils.util import *
+
+
+def insert_spaces_after_emojis(text: str) -> str:
+    """
+    Insert a space after each emoji in the text.
+    Uses regex to detect emoji characters.
+
+    Args:
+        text: The input text containing emojis
+
+    Returns:
+        Text with spaces inserted after each emoji
+    """
+    # Regex pattern to match emoji characters
+    # This pattern matches most Unicode emoji characters
+    emoji_pattern = regex.compile(r'[\p{Emoji}]')
+
+    # Find all emoji positions
+    emoji_positions = []
+    for match in emoji_pattern.finditer(text):
+        emoji_positions.append(match.end())
+
+    # Insert spaces after emojis (in reverse order to maintain positions)
+    result = text
+    for pos in reversed(emoji_positions):
+        result = result[:pos] + ' ' + result[pos:]
+
+    return result
+
+
+def remove_spaces_after_emojis(text: str) -> str:
+    """
+    Remove spaces that appear after emoji characters in the text.
+    Uses regex to detect emoji characters followed by spaces.
+
+    Args:
+        text: The input text containing emojis with spaces
+
+    Returns:
+        Text with spaces removed after each emoji
+    """
+    # Regex pattern to match emoji characters followed by a space
+    emoji_space_pattern = regex.compile(r'([\p{Emoji}])\s')
+
+    # Replace emoji + space with just emoji
+    result = emoji_space_pattern.sub(r'\1', text)
+
+    return result
 
 
 async def gen_telegram_digest(config, source_options=None):
@@ -63,6 +112,11 @@ def format_telegram_message(post: telethon.tl.patched.Message) -> str:
         Formatted message with HTML tags and line breaks
     """
     post_message = str(post.message)
+
+    # Insert spaces after emojis before processing entities
+    # Workaround for weird offset calculation
+    post_message = insert_spaces_after_emojis(post_message)
+
     if not post.entities:
         return post_message.replace("\n", "<br>\n")
 
@@ -116,7 +170,7 @@ def format_telegram_message(post: telethon.tl.patched.Message) -> str:
         else:
             print("Unknown entity: ", entity)
 
-    return post_message.replace("\n", "<br>\n")
+    return remove_spaces_after_emojis(post_message).replace("\n", "<br>\n")
 
 
 async def gen_telegram_channel_digest(config, client, channel_entity):
