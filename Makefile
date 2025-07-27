@@ -2,8 +2,8 @@
 lambda-install-packages:
 	rm -rf package/
 	poetry export -f requirements.txt --without-hashes > aws/requirements.txt
-	# Install grpc with Linux platform
-	pip install --platform manylinux2014_x86_64 --only-binary=:all: --target package/ grpcio==1.71.0
+	# Install grpc and regex with Linux platform
+	pip install --platform manylinux2014_x86_64 --only-binary=:all: --target package/ grpcio==1.71.0 regex==2024.11.6
 	# Install other dependencies
 	pip install -r aws/requirements.txt -t package/
 
