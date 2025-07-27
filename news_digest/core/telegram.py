@@ -5,15 +5,38 @@ from telethon.tl.functions.users import GetFullUserRequest
 import telethon
 import shutil
 import base64
-import regex
+import re
 
 from news_digest.utils.util import *
+
+
+# Common emoji Unicode ranges for pattern matching
+_EMOJI_RANGES = (
+    r"[\U0001F600-\U0001F64F"  # Emoticons
+    r"\U0001F300-\U0001F5FF"  # Misc Symbols and Pictographs
+    r"\U0001F680-\U0001F6FF"  # Transport and Map Symbols
+    r"\U0001F1E0-\U0001F1FF"  # Regional Indicator Symbols
+    r"\U0001F700-\U0001F77F"  # Alchemical Symbols
+    r"\U0001F780-\U0001F7FF"  # Geometric Shapes Extended
+    r"\U0001F800-\U0001F8FF"  # Supplemental Arrows-C
+    r"\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
+    r"\U0001FA00-\U0001FA6F"  # Chess Symbols
+    r"\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
+    r"\U00002600-\U000026FF"  # Miscellaneous Symbols
+    r"\U00002700-\U000027BF"  # Dingbats
+    r"\U0001F018-\U0001F270"  # Various symbols
+    r"\U0000238C-\U00002454"  # Various symbols
+    r"\U000020D0-\U000020FF"  # Combining Diacritical Marks for Symbols
+    r"]"
+    r"[\U0000FE00-\U0000FE0F]?"  # Optional variation selector
+    r"[\U000020D0-\U000020FF]*"  # Optional combining marks
+)
 
 
 def insert_spaces_after_emojis(text: str) -> str:
     """
     Insert a space after each emoji in the text.
-    Uses regex to detect emoji characters.
+    Uses re to detect emoji characters.
 
     Args:
         text: The input text containing emojis
@@ -21,9 +44,9 @@ def insert_spaces_after_emojis(text: str) -> str:
     Returns:
         Text with spaces inserted after each emoji
     """
-    # Regex pattern to match emoji characters
-    # This pattern matches most Unicode emoji characters
-    emoji_pattern = regex.compile(r'[\p{Emoji}]')
+    # Regex pattern to match emoji sequences including variation selectors
+    # This pattern matches complete emoji sequences, not individual code points
+    emoji_pattern = re.compile(_EMOJI_RANGES)
 
     # Find all emoji positions
     emoji_positions = []
@@ -33,7 +56,7 @@ def insert_spaces_after_emojis(text: str) -> str:
     # Insert spaces after emojis (in reverse order to maintain positions)
     result = text
     for pos in reversed(emoji_positions):
-        result = result[:pos] + ' ' + result[pos:]
+        result = result[:pos] + " " + result[pos:]
 
     return result
 
@@ -41,7 +64,7 @@ def insert_spaces_after_emojis(text: str) -> str:
 def remove_spaces_after_emojis(text: str) -> str:
     """
     Remove spaces that appear after emoji characters in the text.
-    Uses regex to detect emoji characters followed by spaces.
+    Uses re to detect emoji sequences followed by spaces.
 
     Args:
         text: The input text containing emojis with spaces
@@ -49,11 +72,11 @@ def remove_spaces_after_emojis(text: str) -> str:
     Returns:
         Text with spaces removed after each emoji
     """
-    # Regex pattern to match emoji characters followed by a space
-    emoji_space_pattern = regex.compile(r'([\p{Emoji}])\s')
+    # Regex pattern to match emoji sequences followed by a space
+    emoji_space_pattern = re.compile(f"({_EMOJI_RANGES})\\s")
 
     # Replace emoji + space with just emoji
-    result = emoji_space_pattern.sub(r'\1', text)
+    result = emoji_space_pattern.sub(r"\1", text)
 
     return result
 
