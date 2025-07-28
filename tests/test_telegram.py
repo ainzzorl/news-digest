@@ -13,7 +13,7 @@ from news_digest.core.telegram import format_telegram_message
 class TestFormatTelegramMessage(unittest.TestCase):
     def test_format_telegram_message_with_entities(self):
         """Test format_telegram_message with the specified text and entities."""
-        
+
         # Create mock message text
         message_text = """🎙️Фабиано Каруана: «Я думал, что будет какой-то шепот в зале, в реальности же были вопли»
 
@@ -22,8 +22,15 @@ class TestFormatTelegramMessage(unittest.TestCase):
         # Create mock entities
         entities = [
             Mock(offset=3, length=87, __class__=telethon.tl.types.MessageEntityBold),
-            Mock(offset=105, length=5, url="https://youtu.be/pOVsGE1u8Ps", __class__=telethon.tl.types.MessageEntityTextUrl),
-            Mock(offset=128, length=15, __class__=telethon.tl.types.MessageEntityItalic),
+            Mock(
+                offset=105,
+                length=5,
+                url="https://youtu.be/pOVsGE1u8Ps",
+                __class__=telethon.tl.types.MessageEntityTextUrl,
+            ),
+            Mock(
+                offset=128, length=15, __class__=telethon.tl.types.MessageEntityItalic
+            ),
             Mock(offset=144, length=16, __class__=telethon.tl.types.MessageEntityBold),
             Mock(offset=186, length=15, __class__=telethon.tl.types.MessageEntityBold),
         ]
@@ -40,9 +47,43 @@ class TestFormatTelegramMessage(unittest.TestCase):
         expected = """🎙️<b>Фабиано Каруана: «Я думал, что будет какой-то шепот в зале, в реальности же были вопли»</b><br>
 <br>
 В нашумевшем <a href='https://youtu.be/pOVsGE1u8Ps'>видео</a> с критикой серии <i>Freestyle Chess</i> <b>Хикару Накамура </b>упомянул, что его коллега <b>Фабиано Каруана</b> уже выражал схожую позицию в интервью, которое было опубликовано, но позднее странным образом исчезло"""
-        
+
+        self.assertEqual(result, expected)
+
+    def test_format_telegram_message_with_entities_2(self):
+        """Test format_telegram_message with the specified text and entities."""
+
+        # Create mock message text
+        message_text = """Главные новости 27 июля
+
+✹ Ленинградская область атакована дронами. В Пулково задержались десятки рейсов. Губернатор предупредил о «частичном понижении сигнала мобильного интернета»"""
+
+        # Create mock entities
+        entities = [
+            Mock(offset=0, length=23, __class__=telethon.tl.types.MessageEntityBold),
+            Mock(
+                offset=49,
+                length=9,
+                url="https://bit.ly/meduzamirror",
+                __class__=telethon.tl.types.MessageEntityTextUrl,
+            ),
+        ]
+
+        # Create mock post object
+        mock_post = Mock()
+        mock_post.message = message_text
+        mock_post.entities = entities
+
+        # Call the function
+        result = format_telegram_message(mock_post)
+
+        # Assert the exact output that the function produces
+        expected = """<b>Главные новости 27 июля</b><br>
+<br>
+✹ Ленинградская область <a href='https://bit.ly/meduzamirror'>атакована</a> дронами. В Пулково задержались десятки рейсов. Губернатор предупредил о «частичном понижении сигнала мобильного интернета»"""
+
         self.assertEqual(result, expected)
 
 
-if __name__ == '__main__':
-    unittest.main() 
+if __name__ == "__main__":
+    unittest.main()

@@ -21,9 +21,9 @@ def insert_spaces_after_emojis(text: str) -> str:
     Returns:
         Text with spaces inserted after each emoji
     """
-    # Regex pattern to match emoji characters
-    # This pattern matches most Unicode emoji characters
-    emoji_pattern = regex.compile(r'[\p{Emoji}]')
+    # Regex pattern to match any character that takes two code points
+    # This matches characters outside the Basic Multilingual Plane (U+10000 and above)
+    emoji_pattern = regex.compile(r"[\U00010000-\U0010FFFF]")
 
     # Find all emoji positions
     emoji_positions = []
@@ -33,7 +33,7 @@ def insert_spaces_after_emojis(text: str) -> str:
     # Insert spaces after emojis (in reverse order to maintain positions)
     result = text
     for pos in reversed(emoji_positions):
-        result = result[:pos] + ' ' + result[pos:]
+        result = result[:pos] + " " + result[pos:]
 
     return result
 
@@ -42,6 +42,7 @@ def remove_spaces_after_emojis(text: str) -> str:
     """
     Remove spaces that appear after emoji characters in the text.
     Uses regex to detect emoji characters followed by spaces.
+    Only considers emoji matches longer than 1 character.
 
     Args:
         text: The input text containing emojis with spaces
@@ -49,11 +50,16 @@ def remove_spaces_after_emojis(text: str) -> str:
     Returns:
         Text with spaces removed after each emoji
     """
-    # Regex pattern to match emoji characters followed by a space
-    emoji_space_pattern = regex.compile(r'([\p{Emoji}])\s')
+    # Regex pattern to match any character that takes two code points followed by a space
+    emoji_space_pattern = regex.compile(r"([\U00010000-\U0010FFFF])\s")
 
-    # Replace emoji + space with just emoji
-    result = emoji_space_pattern.sub(r'\1', text)
+    # Find all emoji matches
+    result = text
+    for match in emoji_space_pattern.finditer(text):
+        # Replace the space after this emoji with empty string
+        pos = match.end(1)
+        if pos < len(result) and result[pos] == " ":
+            result = result[:pos] + result[pos + 1 :]
 
     return result
 
