@@ -57,13 +57,17 @@ def hn_item_to_html(config, item, global_config={}):
         + f"{item.published}\n<br>"
         + f"{item.description.strip()}"
     )
-    
+
     # Add article summary if Gemini API key is available
-    if "ai" in global_config and global_config["ai"]["vendor"] == "gemini" and "key" in global_config["ai"]:
+    if (
+        "ai" in global_config
+        and global_config["ai"]["vendor"] == "gemini"
+        and "key" in global_config["ai"]
+    ):
         summary = summarize_article(item.link, global_config["ai"]["key"])
         if summary:
             result += f"<b>Summary:</b><br><br>{summary}\n\n<br><br>"
-    
+
     image_urls = "\n<br>".join(
         [
             f"<img src='{link.href}'/>"
@@ -96,46 +100,50 @@ def hn_item_to_html(config, item, global_config={}):
 
 
 def extract_main_content(html_content):
-    soup = BeautifulSoup(html_content, 'html.parser')
-    
+    soup = BeautifulSoup(html_content, "html.parser")
+
     # Remove unwanted elements
-    for element in soup.find_all(['script', 'style', 'nav', 'header', 'footer', 'aside']):
+    for element in soup.find_all(
+        ["script", "style", "nav", "header", "footer", "aside"]
+    ):
         element.decompose()
-    
+
     # Try to find the main content
     main_content = None
-    
+
     # Common article content containers
     content_selectors = [
-        'article',
+        "article",
         '[role="main"]',
-        '.post-content',
-        '.article-content',
-        '.entry-content',
-        '#content',
-        '.content',
-        'main'
+        ".post-content",
+        ".article-content",
+        ".entry-content",
+        "#content",
+        ".content",
+        "main",
     ]
-    
+
     for selector in content_selectors:
         main_content = soup.select_one(selector)
         if main_content:
             break
-    
+
     # If no main content found, use the body
     if not main_content:
         main_content = soup.body
-    
+
     if not main_content:
         return ""
-    
+
     # Get text content
-    text = main_content.get_text(separator=' ', strip=True)
-    
+    text = main_content.get_text(separator=" ", strip=True)
+
     # Clean up the text
-    text = re.sub(r'\s+', ' ', text)  # Replace multiple spaces with single space
-    text = re.sub(r'\n\s*\n', '\n', text)  # Replace multiple newlines with single newline
-    
+    text = re.sub(r"\s+", " ", text)  # Replace multiple spaces with single space
+    text = re.sub(
+        r"\n\s*\n", "\n", text
+    )  # Replace multiple newlines with single newline
+
     return text.strip()
 
 
@@ -144,27 +152,27 @@ def summarize_article(url, api_key):
     try:
         # Configure the Gemini API
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        
+        model = genai.GenerativeModel("gemini-2.0-flash")
+
         # Fetch the article content
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
         req = urllib.request.Request(url, headers=headers)
-        response = urllib.request.urlopen(req)
-        html_content = response.read().decode('utf-8')
-        
+        response = urllib.request.urlopen(req, timeout=10)
+        html_content = response.read().decode("utf-8")
+
         # Extract main content using BeautifulSoup
         text_content = extract_main_content(html_content)
-        
+
         # Truncate text if it's too long (Gemini has a context limit)
         if len(text_content) > 30000:
             text_content = text_content[:30000]
-        
+
         # Generate summary
         prompt = f"Please provide a concise summary of the following article in 2-3 sentences:\n\n{text_content}"
         response = model.generate_content(prompt)
-        
+
         return response.text
     except Exception as e:
         print(f"Error summarizing article {url}: {e}")
