@@ -6,6 +6,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import boto3
 
+from news_digest.core.chess_players import gen_chess_players_digest
 from news_digest.core.hn import *
 from news_digest.core.reddit import *
 from news_digest.core.rss import *
@@ -24,6 +25,8 @@ async def gen_source_digest(config, source_options=None, global_config=None) -> 
         return await gen_telegram_digest(config, source_options)
     elif config["type"] == "hn":
         return gen_hn_digest(config, source_options, global_config)
+    elif config["type"] == "chess_players":
+        return gen_chess_players_digest(config, source_options)
     else:
         raise Exception(f"Unknown type: {config['type']}")
 
