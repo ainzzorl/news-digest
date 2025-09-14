@@ -28,7 +28,7 @@ async def gen_source_digest(config, source_options=None, global_config=None) -> 
         elif config["type"] == "hn":
             return gen_hn_digest(config, source_options, global_config)
         elif config["type"] == "chess_players":
-            return gen_chess_players_digest(config, source_options)
+            return gen_chess_players_digest(config, source_options, global_config)
         else:
             raise Exception(f"Unknown type: {config['type']}")
     except Exception as e:

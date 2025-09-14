@@ -1,19 +1,22 @@
 import os
 import time
-import feedparser
 from datetime import datetime
-from time import mktime
 import re
 import logging
-from typing import Dict, List, Optional, Any, Union
+import json
+from typing import Dict, List, Optional, Any
 
 import requests
+import boto3
+from botocore.exceptions import ClientError
 
-from news_digest.utils.util import *
+from news_digest.utils.util import is_running_in_lambda
 
 
 def gen_chess_players_digest(
-    config: Dict[str, Any], source_options: Optional[Dict[str, Any]] = None
+    config: Dict[str, Any],
+    source_options: Optional[Dict[str, Any]] = None,
+    global_config: Optional[Dict[str, Any]] = None,
 ) -> str:
     res = ""
     res += "<h2>Chess Players</h2>"
@@ -26,10 +29,31 @@ def gen_chess_players_digest(
         )
         return ""
 
-    for player in config["players"]:
+    s3_config = global_config.get("s3") if global_config else None
+    players = config["players"]
+
+    # Load all processed games from S3 in a single operation
+    all_processed_games = (
+        load_all_processed_games_from_s3(s3_config) if s3_config else {}
+    )
+
+    # Track all current games for batch S3 update
+    all_current_games = {}
+
+    for player in players:
         try:
-            player_digest = _gen_player_digest(config, player)
+            processed_game_ids = all_processed_games.get(player, [])
+            player_digest, current_game_ids = _gen_player_digest(
+                config, player, processed_game_ids
+            )
             res += player_digest
+
+            # Store current game IDs for batch update
+            if current_game_ids:
+                # Combine existing processed IDs with new ones
+                all_processed_ids = list(set(processed_game_ids + current_game_ids))
+                all_current_games[player] = all_processed_ids
+
         except Exception as e:
             error_msg = f"Failed to process player {player}: {str(e)}"
             print(f"ERROR: {error_msg}")
@@ -38,6 +62,10 @@ def gen_chess_players_digest(
             # Add error info to the result
             res += f"<h3>{player}</h3>"
             res += f"<p><em>Error: Unable to fetch player data - {str(e)}</em></p>"
+
+    # Save all processed games to S3 in a single batch operation
+    if s3_config and all_current_games:
+        save_all_processed_games_to_s3(all_current_games, s3_config)
 
     # Add error summary if there were any errors
     if errors:
@@ -50,7 +78,9 @@ def gen_chess_players_digest(
     return res
 
 
-def _gen_player_digest(config: Dict[str, Any], player: str) -> str:
+def _gen_player_digest(
+    config: Dict[str, Any], player: str, processed_game_ids: List[str]
+) -> tuple[str, List[str]]:
     res = f"<h3>{player}</h3>"
 
     # Query 365chess.com
@@ -82,28 +112,45 @@ def _gen_player_digest(config: Dict[str, Any], player: str) -> str:
         "recent_games_count", 5
     )  # Default to 5 if not specified
     games = _extract_recent_games(player_info_html, player, recent_games_count)
+
+    current_game_ids = []
+
     if games:
-        res += f"<h4>Recent Games ({len(games)})</h4>"
-        res += "<ul>"
-        for i, game in enumerate(games, 1):
-            # Format the result for better display
-            result_display = (
-                game["result"]
-                .replace("½-½", "½-½")
-                .replace("1-0", "1-0")
-                .replace("0-1", "0-1")
-            )
+        # Extract IDs for all current games
+        current_game_ids = [
+            game.get("game_id") for game in games if game.get("game_id")
+        ]
 
-            # Display white vs black players
-            matchup = f"{game['white_player']} ({game['white_rating']}) vs {game['black_player']} ({game['black_rating']})"
+        # Filter out games that have already been processed
+        new_games = filter_new_games(games, processed_game_ids)
 
-            res += f"<li><strong>{i}.</strong> {matchup} "
-            res += f"- <strong>{result_display}</strong> "
-            res += f"<em>{game['tournament']}</em> "
-            res += f"({game['date']})</li>"
-        res += "</ul>"
+        # Only display new games that haven't been reported before
+        if new_games:
+            res += f"<h4>Recent Games ({len(new_games)} new)</h4>"
+            res += "<ul>"
+            for i, game in enumerate(new_games, 1):
+                # Format the result for better display
+                result_display = (
+                    game["result"]
+                    .replace("½-½", "½-½")
+                    .replace("1-0", "1-0")
+                    .replace("0-1", "0-1")
+                )
 
-    return res
+                # Display white vs black players
+                matchup = f"{game['white_player']} ({game['white_rating']}) vs {game['black_player']} ({game['black_rating']})"
+
+                res += f"<li><strong>{i}.</strong> {matchup} "
+                res += f"- <strong>{result_display}</strong> "
+                res += f"<em>{game['tournament']}</em> "
+                res += f"({game['date']})</li>"
+            res += "</ul>"
+        else:
+            # All games have been processed before
+            if processed_game_ids:
+                res += "<p><em>No new games since last report.</em></p>"
+
+    return res, current_game_ids
 
 
 def _extract_fide_id(html_content: str) -> Optional[str]:
@@ -241,6 +288,16 @@ def _extract_recent_games(
             # Clean up the result (remove extra text and images)
             result = result_cell.split()[0] if result_cell else "Unknown"
 
+            # Extract game ID from the result cell's href attribute
+            game_id = None
+            result_link = cells[4].find("a")
+            if result_link and result_link.get("href"):
+                href = result_link.get("href")
+                # Extract gid parameter from URLs like "/game.php?gid=4572033"
+                gid_match = re.search(r"gid=(\d+)", href)
+                if gid_match:
+                    game_id = gid_match.group(1)
+
             # Store white and black player information directly
             games.append(
                 {
@@ -253,6 +310,7 @@ def _extract_recent_games(
                     "tournament": tournament,
                     "moves": moves,
                     "eco": eco,
+                    "game_id": game_id,
                 }
             )
 
@@ -452,3 +510,229 @@ def _format_rating_changes(rating_history: List[Dict[str, Any]]) -> str:
         return f"<p><strong>Recent Changes:</strong> {' | '.join(changes)} {period_info}</p>"
 
     return ""
+
+
+def get_s3_processed_games_key(player_name: str) -> str:
+    """
+    Generate S3 key for storing processed games for a player.
+
+    Args:
+        player_name: Name of the chess player
+
+    Returns:
+        str: S3 key path
+    """
+    sanitized_player = player_name.replace(" ", "_")
+    return f"chess_processed_games/{sanitized_player}.json"
+
+
+def load_processed_games_from_s3(
+    player_name: str, s3_config: Dict[str, str]
+) -> List[str]:
+    """
+    Load list of processed game IDs from S3 for a given player.
+
+    Args:
+        player_name: Name of the chess player
+        s3_config: S3 configuration with bucket and region
+
+    Returns:
+        List of processed game IDs
+    """
+    if not s3_config:
+        return []
+
+    s3_key = get_s3_processed_games_key(player_name)
+
+    try:
+        s3 = boto3.client("s3", region_name=s3_config.get("region"))
+        response = s3.get_object(Bucket=s3_config["bucket"], Key=s3_key)
+        content = response["Body"].read().decode("utf-8")
+        data = json.loads(content)
+        return data.get("processed_game_ids", [])
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchKey":
+            # File doesn't exist yet, return empty list
+            return []
+        else:
+            print(
+                f"ERROR: Failed to load processed games from S3 for {player_name}: {str(e)}"
+            )
+            return []
+    except Exception as e:
+        print(
+            f"ERROR: Failed to parse processed games from S3 for {player_name}: {str(e)}"
+        )
+        return []
+
+
+def save_processed_games_to_s3(
+    player_name: str, processed_game_ids: List[str], s3_config: Dict[str, str]
+) -> bool:
+    """
+    Save list of processed game IDs to S3 for a given player.
+
+    Args:
+        player_name: Name of the chess player
+        processed_game_ids: List of processed game IDs
+        s3_config: S3 configuration with bucket and region
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    if not s3_config:
+        print("WARNING: No S3 config provided, skipping save")
+        return False
+
+    s3_key = get_s3_processed_games_key(player_name)
+
+    try:
+        s3 = boto3.client("s3", region_name=s3_config.get("region"))
+
+        # Prepare data structure
+        data = {
+            "player_name": player_name,
+            "last_updated": datetime.now().isoformat(),
+            "processed_game_ids": processed_game_ids,
+        }
+
+        # Upload to S3
+        s3.put_object(
+            Bucket=s3_config["bucket"],
+            Key=s3_key,
+            Body=json.dumps(data, indent=2),
+            ContentType="application/json",
+        )
+
+        print(
+            f"Successfully saved {len(processed_game_ids)} processed game IDs to S3 for {player_name}"
+        )
+        return True
+
+    except Exception as e:
+        print(
+            f"ERROR: Failed to save processed games to S3 for {player_name}: {str(e)}"
+        )
+        return False
+
+
+def filter_new_games(
+    games: List[Dict[str, str]], processed_game_ids: List[str]
+) -> List[Dict[str, str]]:
+    """
+    Filter out games that have already been processed.
+
+    Args:
+        games: List of game dictionaries
+        processed_game_ids: List of already processed game IDs
+
+    Returns:
+        List of new games that haven't been processed yet
+    """
+    new_games = []
+    for game in games:
+        game_id = game.get("game_id")
+        if game_id and game_id not in processed_game_ids:
+            new_games.append(game)
+
+    return new_games
+
+
+def get_s3_all_processed_games_key() -> str:
+    """
+    Generate S3 key for storing all processed games in a single object.
+
+    Returns:
+        str: S3 key path for the consolidated games file
+    """
+    return "chess_processed_games/all_processed_games.json"
+
+
+def load_all_processed_games_from_s3(s3_config: Dict[str, str]) -> Dict[str, List[str]]:
+    """
+    Load all processed game IDs from a single S3 object.
+
+    Args:
+        s3_config: S3 configuration with bucket and region
+
+    Returns:
+        Dictionary mapping player names to their processed game IDs
+    """
+    if not s3_config:
+        return {}
+
+    s3_key = get_s3_all_processed_games_key()
+
+    try:
+        s3 = boto3.client("s3", region_name=s3_config.get("region"))
+        response = s3.get_object(Bucket=s3_config["bucket"], Key=s3_key)
+        content = response["Body"].read().decode("utf-8")
+        data = json.loads(content)
+
+        # Return the players data, defaulting to empty dict if not found
+        return data.get("players", {})
+
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchKey":
+            # File doesn't exist yet, return empty dict
+            print("No processed games file found in S3, starting fresh")
+            return {}
+        else:
+            print(f"ERROR: Failed to load processed games from S3: {str(e)}")
+            return {}
+    except Exception as e:
+        print(f"ERROR: Failed to parse processed games from S3: {str(e)}")
+        return {}
+
+
+def save_all_processed_games_to_s3(
+    player_games_data: Dict[str, List[str]], s3_config: Dict[str, str]
+) -> bool:
+    """
+    Save all processed game IDs to a single S3 object.
+
+    Args:
+        player_games_data: Dictionary mapping player names to their processed game IDs
+        s3_config: S3 configuration with bucket and region
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    if not s3_config:
+        print("WARNING: No S3 config provided, skipping save")
+        return False
+
+    if not player_games_data:
+        print("WARNING: No player data provided, skipping save")
+        return False
+
+    s3_key = get_s3_all_processed_games_key()
+
+    try:
+        s3 = boto3.client("s3", region_name=s3_config.get("region"))
+
+        # Prepare consolidated data structure
+        data = {
+            "last_updated": datetime.now().isoformat(),
+            "total_players": len(player_games_data),
+            "total_games": sum(len(ids) for ids in player_games_data.values()),
+            "players": player_games_data,
+        }
+
+        # Upload to S3
+        s3.put_object(
+            Bucket=s3_config["bucket"],
+            Key=s3_key,
+            Body=json.dumps(data, indent=2),
+            ContentType="application/json",
+        )
+
+        print(
+            f"Successfully saved processed games for {data['total_players']} players "
+            f"({data['total_games']} total game IDs) to single S3 object"
+        )
+        return True
+
+    except Exception as e:
+        print(f"ERROR: Failed to save processed games to S3: {str(e)}")
+        return False
