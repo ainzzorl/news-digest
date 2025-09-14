@@ -5,6 +5,7 @@ import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import boto3
+from datetime import datetime
 
 from news_digest.core.chess_players import gen_chess_players_digest
 from news_digest.core.hn import *
@@ -17,18 +18,24 @@ CONFIG: dict[str, Any] = {}
 
 async def gen_source_digest(config, source_options=None, global_config=None) -> str:
     print(f"Generating source digest, config: {config}, options: {source_options}")
-    if config["type"] == "rss":
-        return gen_rss_digest(config, source_options)
-    elif config["type"] == "reddit":
-        return await gen_reddit_digest(config, source_options)
-    elif config["type"] == "telegram":
-        return await gen_telegram_digest(config, source_options)
-    elif config["type"] == "hn":
-        return gen_hn_digest(config, source_options, global_config)
-    elif config["type"] == "chess_players":
-        return gen_chess_players_digest(config, source_options)
-    else:
-        raise Exception(f"Unknown type: {config['type']}")
+    try:
+        if config["type"] == "rss":
+            return gen_rss_digest(config, source_options)
+        elif config["type"] == "reddit":
+            return await gen_reddit_digest(config, source_options)
+        elif config["type"] == "telegram":
+            return await gen_telegram_digest(config, source_options)
+        elif config["type"] == "hn":
+            return gen_hn_digest(config, source_options, global_config)
+        elif config["type"] == "chess_players":
+            return gen_chess_players_digest(config, source_options)
+        else:
+            raise Exception(f"Unknown type: {config['type']}")
+    except Exception as e:
+        source_name = config.get("name", config.get("type", "Unknown source"))
+        error_message = f"<h3>❌ Error in {source_name}</h3><p>Failed to generate digest: {str(e)}</p>"
+        print(f"Error generating digest for {source_name}: {e}")
+        return error_message
 
 
 def load_config():
