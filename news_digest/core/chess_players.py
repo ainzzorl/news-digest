@@ -33,8 +33,8 @@ def gen_chess_players_digest(
     players = config["players"]
 
     # Load all processed games from S3 in a single operation
-    all_processed_games = (
-        load_all_processed_games_from_s3(s3_config) if s3_config else {}
+    all_processed_games, s3_object_age = (
+        load_all_processed_games_from_s3(s3_config) if s3_config else ({}, None)
     )
 
     # Track all current games for batch S3 update
@@ -44,7 +44,7 @@ def gen_chess_players_digest(
         try:
             processed_game_ids = all_processed_games.get(player, [])
             player_digest, current_game_ids = _gen_player_digest(
-                config, player, processed_game_ids
+                config, player, processed_game_ids, s3_object_age
             )
             res += player_digest
 
@@ -78,11 +78,57 @@ def gen_chess_players_digest(
     return res
 
 
-def _gen_player_digest(
-    config: Dict[str, Any], player: str, processed_game_ids: List[str]
-) -> tuple[str, List[str]]:
-    res = f"<h3>{player}</h3>"
+def _has_new_ratings(
+    rating_history: Optional[List[Dict[str, Any]]], s3_object_age: Optional[datetime]
+) -> bool:
+    """
+    Check if there are new ratings since the last S3 object update.
 
+    Args:
+        rating_history: Rating history from Chess Tools API
+        s3_object_age: Last modified date of S3 object
+
+    Returns:
+        bool: True if there are new ratings, False otherwise
+    """
+    if not rating_history or not s3_object_age:
+        return False
+
+    # Check if the most recent rating period is newer than the S3 object
+    if len(rating_history) > 0:
+        latest_period = rating_history[0]
+        latest_date_str = latest_period.get("date", "")
+
+        if latest_date_str:
+            try:
+                # Parse the date from format "2025-09" to datetime
+                from datetime import datetime, timezone
+
+                latest_date = datetime.strptime(latest_date_str, "%Y-%m")
+
+                # Make both datetimes timezone-aware for comparison
+                # Assume the rating date is in UTC (since FIDE ratings are typically published in UTC)
+                latest_date = latest_date.replace(tzinfo=timezone.utc)
+
+                # If s3_object_age is timezone-naive, assume it's UTC
+                if s3_object_age.tzinfo is None:
+                    s3_object_age = s3_object_age.replace(tzinfo=timezone.utc)
+
+                # Compare with S3 object age
+                return latest_date > s3_object_age
+            except ValueError:
+                # If we can't parse the date, assume it's new
+                return True
+
+    return False
+
+
+def _gen_player_digest(
+    config: Dict[str, Any],
+    player: str,
+    processed_game_ids: List[str],
+    s3_object_age: Optional[datetime],
+) -> tuple[str, List[str]]:
     # Query 365chess.com
     # First, check if local/365chess/<player> exists
     # If no, fetch it from https://www.365chess.com/players/<player>
@@ -104,9 +150,6 @@ def _gen_player_digest(
                 f"WARNING: Failed to fetch rating history for {player} (FIDE ID: {fide_id}): {str(e)}"
             )
 
-    # Display current ratings and recent changes
-    res += _format_ratings_section(ratings, rating_history)
-
     # Add recent games
     recent_games_count = config.get(
         "recent_games_count", 5
@@ -114,6 +157,7 @@ def _gen_player_digest(
     games = _extract_recent_games(player_info_html, player, recent_games_count)
 
     current_game_ids = []
+    new_games = []
 
     if games:
         # Extract IDs for all current games
@@ -124,31 +168,40 @@ def _gen_player_digest(
         # Filter out games that have already been processed
         new_games = filter_new_games(games, processed_game_ids)
 
-        # Only display new games that haven't been reported before
-        if new_games:
-            res += f"<h4>Recent Games ({len(new_games)} new)</h4>"
-            res += "<ul>"
-            for i, game in enumerate(new_games, 1):
-                # Format the result for better display
-                result_display = (
-                    game["result"]
-                    .replace("½-½", "½-½")
-                    .replace("1-0", "1-0")
-                    .replace("0-1", "0-1")
-                )
+    # Check if there are new ratings
+    has_new_ratings = _has_new_ratings(rating_history, s3_object_age)
 
-                # Display white vs black players
-                matchup = f"{game['white_player']} ({game['white_rating']}) vs {game['black_player']} ({game['black_rating']})"
+    # If no new games and no new ratings, return empty string
+    if not new_games and not has_new_ratings:
+        return "", current_game_ids
 
-                res += f"<li><strong>{i}.</strong> {matchup} "
-                res += f"- <strong>{result_display}</strong> "
-                res += f"<em>{game['tournament']}</em> "
-                res += f"({game['date']})</li>"
-            res += "</ul>"
-        else:
-            # All games have been processed before
-            if processed_game_ids:
-                res += "<p><em>No new games since last report.</em></p>"
+    # Build the digest content
+    res = f"<h3>{player}</h3>"
+
+    # Display current ratings and recent changes
+    res += _format_ratings_section(ratings, rating_history)
+
+    # Only display new games that haven't been reported before
+    if new_games:
+        res += f"<h4>Recent Games ({len(new_games)} new)</h4>"
+        res += "<ul>"
+        for i, game in enumerate(new_games, 1):
+            # Format the result for better display
+            result_display = (
+                game["result"]
+                .replace("½-½", "½-½")
+                .replace("1-0", "1-0")
+                .replace("0-1", "0-1")
+            )
+
+            # Display white vs black players
+            matchup = f"{game['white_player']} ({game['white_rating']}) vs {game['black_player']} ({game['black_rating']})"
+
+            res += f"<li><strong>{i}.</strong> {matchup} "
+            res += f"- <strong>{result_display}</strong> "
+            res += f"<em>{game['tournament']}</em> "
+            res += f"({game['date']})</li>"
+        res += "</ul>"
 
     return res, current_game_ids
 
@@ -544,7 +597,9 @@ def get_s3_all_processed_games_key() -> str:
     return "chess_processed_games/all_processed_games.json"
 
 
-def load_all_processed_games_from_s3(s3_config: Dict[str, str]) -> Dict[str, List[str]]:
+def load_all_processed_games_from_s3(
+    s3_config: Dict[str, str],
+) -> tuple[Dict[str, List[str]], Optional[datetime]]:
     """
     Load all processed game IDs from a single S3 object.
 
@@ -552,10 +607,10 @@ def load_all_processed_games_from_s3(s3_config: Dict[str, str]) -> Dict[str, Lis
         s3_config: S3 configuration with bucket and region
 
     Returns:
-        Dictionary mapping player names to their processed game IDs
+        Tuple of (Dictionary mapping player names to their processed game IDs, S3 object last modified date)
     """
     if not s3_config:
-        return {}
+        return {}, None
 
     s3_key = get_s3_all_processed_games_key()
 
@@ -565,20 +620,34 @@ def load_all_processed_games_from_s3(s3_config: Dict[str, str]) -> Dict[str, Lis
         content = response["Body"].read().decode("utf-8")
         data = json.loads(content)
 
+        # Get the last modified date from S3 response metadata
+        last_modified = response.get("LastModified")
+        if last_modified:
+            # Convert to datetime if it's not already
+            if isinstance(last_modified, str):
+                last_modified = datetime.fromisoformat(
+                    last_modified.replace("Z", "+00:00")
+                )
+            elif hasattr(last_modified, "replace"):
+                # It's already a datetime object
+                pass
+            else:
+                last_modified = None
+
         # Return the players data, defaulting to empty dict if not found
-        return data.get("players", {})
+        return data.get("players", {}), last_modified
 
     except ClientError as e:
         if e.response["Error"]["Code"] == "NoSuchKey":
             # File doesn't exist yet, return empty dict
             print("No processed games file found in S3, starting fresh")
-            return {}
+            return {}, None
         else:
             print(f"ERROR: Failed to load processed games from S3: {str(e)}")
-            return {}
+            return {}, None
     except Exception as e:
         print(f"ERROR: Failed to parse processed games from S3: {str(e)}")
-        return {}
+        return {}, None
 
 
 def save_all_processed_games_to_s3(
