@@ -228,13 +228,13 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
             if channel_config is not None and "days" in channel_config
             else default_days()
         )
-        days_to_take = 1
+        days_to_take = days_since_last_included_day(current_day, days)
         if (
             channel_config is not None
             and "include_days_since_last" in channel_config
-            and channel_config["include_days_since_last"] == "yes"
+            and channel_config["include_days_since_last"] == "no"
         ):
-            days_to_take = days_since_last_included_day(current_day, days)
+            days_to_take = 1
         if ago.days >= days_to_take:
             break
         if include_filters:
