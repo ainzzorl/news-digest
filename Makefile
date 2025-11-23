@@ -44,3 +44,8 @@ lambda-logs:
 .PHONY: test
 test:
 	python -m unittest discover tests
+
+.PHONY: init
+init:
+	poetry config virtualenvs.in-project true
+	poetry install
