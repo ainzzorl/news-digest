@@ -58,13 +58,9 @@ def hn_item_to_html(config, item, global_config={}):
         + f"{item.description.strip()}"
     )
 
-    # Add article summary if Gemini API key is available
-    if (
-        "ai" in global_config
-        and global_config["ai"]["vendor"] == "gemini"
-        and "key" in global_config["ai"]
-    ):
-        summary = summarize_article(item.link, global_config["ai"]["key"])
+    # Add article summary if AI is configured
+    if "ai" in global_config and "vendor" in global_config["ai"]:
+        summary = summarize_article(item.link, global_config["ai"])
         if summary:
             result += f"<b>Summary:</b><br><br>{summary}\n\n<br><br>"
 
@@ -147,13 +143,9 @@ def extract_main_content(html_content):
     return text.strip()
 
 
-def summarize_article(url, api_key):
+def summarize_article(url, ai_config):
     print(f"Summarizing article {url}")
     try:
-        # Configure the Gemini API
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
-
         # Fetch the article content
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -165,15 +157,46 @@ def summarize_article(url, api_key):
         # Extract main content using BeautifulSoup
         text_content = extract_main_content(html_content)
 
-        # Truncate text if it's too long (Gemini has a context limit)
+        # Truncate text if it's too long (context limit)
         if len(text_content) > 30000:
             text_content = text_content[:30000]
 
-        # Generate summary
+        # Generate summary based on vendor
+        vendor = ai_config.get("vendor", "gemini")
         prompt = f"Please provide a concise summary of the following article in 2-3 sentences:\n\n{text_content}"
-        response = model.generate_content(prompt)
 
-        return response.text
+        if vendor == "gemini":
+            # Configure the Gemini API
+            genai.configure(api_key=ai_config["key"])
+            model = genai.GenerativeModel("gemini-2.0-flash")
+            response = model.generate_content(prompt)
+            return response.text
+        elif vendor == "local":
+            # Use local OpenAI-compatible endpoint
+            endpoint = ai_config.get(
+                "endpoint", "http://localhost:1234/v1/chat/completions"
+            )
+            model_name = ai_config.get("model", "openai/gpt-oss-120b")
+
+            # Prepare the request
+            data = {
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7,
+            }
+
+            req = urllib.request.Request(
+                endpoint,
+                data=json.dumps(data).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            response = urllib.request.urlopen(req, timeout=30)
+            response_data = json.loads(response.read().decode("utf-8"))
+
+            return response_data["choices"][0]["message"]["content"]
+        else:
+            return f"Unknown AI vendor: {vendor}"
+
     except Exception as e:
         print(f"Error summarizing article {url}: {e}")
         return f"Error summarizing article: {str(e)}"
