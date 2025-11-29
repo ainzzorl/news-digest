@@ -191,12 +191,17 @@ async def gen_telegram_channel_digest(config, client, channel_entity):
 
     current_day = datetime.now().weekday() + 1
 
-    if channel_config is not None and "days" in channel_config:
-        if current_day not in channel_config["days"]:
-            print(
-                f'Skipping {channel_entity.id} ({channel_entity.title}), not in days {channel_config["days"]}. Current day: {current_day}'
-            )
-            return ""
+    days = (
+        channel_config["days"]
+        if channel_config is not None and "days" in channel_config
+        else config.get("default_days", default_days())
+    )
+
+    if current_day not in days:
+        print(
+            f"Skipping {channel_entity.id} ({channel_entity.title}), not in days {days}. Current day: {current_day}"
+        )
+        return ""
 
     filters = (
         channel_config["filters"]
