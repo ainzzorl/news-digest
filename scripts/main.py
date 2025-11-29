@@ -7,6 +7,7 @@ from datetime import datetime
 import sys
 import asyncio
 import argparse
+import requests
 
 
 def lambda_handler(event, context):
@@ -40,48 +41,79 @@ async def main():
     parser.add_argument("--output", "-o", type=str, help="Output file path")
     args = parser.parse_args()
 
-    s3_path = "news-digests/" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".html"
+    # Start LMS server
+    try:
+        print("Starting LMS server...")
+        requests.post("http://framework-desktop.local:9247/lms/server/start")
+        print("LMS server started")
+    except Exception as e:
+        print(f"Failed to start LMS server (continuing anyway): {e}")
 
-    if args.gen:
-        print("Generating digest")
-        source_options = {}
-        if args.subreddits:
-            source_options["subreddits"] = args.subreddits.split(",")
-        digest = await gen_digest(
-            s3_path, source_name=args.source, source_options=source_options
+    # Load LMS model
+    try:
+        print("Loading LMS model...")
+        requests.post(
+            "http://framework-desktop.local:9247/lms/load",
+            headers={"Content-Type": "application/json"},
+            json={"model": "openai/gpt-oss-120b"},
         )
-    else:
-        print("Using dummy digest")
-        digest = """\
-    <html>
-    <head></head>
-    <body>
-    <p>Hi!<br>
-        How are <b>you</b>?<br>
-        Here is the <a href="http://www.python.org">link</a> you wanted.
-    </p>
-    </body>
-    </html>
-    """
+        print("LMS model loaded")
+    except Exception as e:
+        print(f"Failed to load LMS model (continuing anyway): {e}")
 
-    if args.output:
-        print(f"Writing digest to {args.output}")
-        with open(args.output, "w") as text_file:
-            text_file.write(digest)
-    else:
-        print("Skipping file output")
+    try:
+        s3_path = (
+            "news-digests/" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".html"
+        )
 
-    if args.mail:
-        print("Mailing digest")
-        mail_digest(digest)
-    else:
-        print("Skipping mailing")
+        if args.gen:
+            print("Generating digest")
+            source_options = {}
+            if args.subreddits:
+                source_options["subreddits"] = args.subreddits.split(",")
+            digest = await gen_digest(
+                s3_path, source_name=args.source, source_options=source_options
+            )
+        else:
+            print("Using dummy digest")
+            digest = """\
+        <html>
+        <head></head>
+        <body>
+        <p>Hi!<br>
+            How are <b>you</b>?<br>
+            Here is the <a href="http://www.python.org">link</a> you wanted.
+        </p>
+        </body>
+        </html>
+        """
 
-    if args.upload:
-        print("Uploading digest")
-        upload_digest(digest, s3_path)
-    else:
-        print("Skipping uploading")
+        if args.output:
+            print(f"Writing digest to {args.output}")
+            with open(args.output, "w") as text_file:
+                text_file.write(digest)
+        else:
+            print("Skipping file output")
+
+        if args.mail:
+            print("Mailing digest")
+            mail_digest(digest)
+        else:
+            print("Skipping mailing")
+
+        if args.upload:
+            print("Uploading digest")
+            upload_digest(digest, s3_path)
+        else:
+            print("Skipping uploading")
+    finally:
+        # Unload LMS model
+        try:
+            print("Unloading LMS model...")
+            requests.post("http://framework-desktop.local:9247/lms/unload")
+            print("LMS model unloaded")
+        except Exception as e:
+            print(f"Failed to unload LMS model (continuing anyway): {e}")
 
 
 if __name__ == "__main__":
