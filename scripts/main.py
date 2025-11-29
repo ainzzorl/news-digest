@@ -41,32 +41,32 @@ async def main():
     parser.add_argument("--output", "-o", type=str, help="Output file path")
     args = parser.parse_args()
 
-    # Start LMS server
-    try:
-        print("Starting LMS server...")
-        requests.post("http://framework-desktop.local:9247/lms/server/start")
-        print("LMS server started")
-    except Exception as e:
-        print(f"Failed to start LMS server (continuing anyway): {e}")
-
-    # Load LMS model
-    try:
-        print("Loading LMS model...")
-        requests.post(
-            "http://framework-desktop.local:9247/lms/load",
-            headers={"Content-Type": "application/json"},
-            json={"model": "openai/gpt-oss-120b"},
-        )
-        print("LMS model loaded")
-    except Exception as e:
-        print(f"Failed to load LMS model (continuing anyway): {e}")
-
     try:
         s3_path = (
             "news-digests/" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".html"
         )
 
         if args.gen:
+            # Start LMS server
+            try:
+                print("Starting LMS server...")
+                requests.post("http://framework-desktop.local:9247/lms/server/start")
+                print("LMS server started")
+            except Exception as e:
+                print(f"Failed to start LMS server (continuing anyway): {e}")
+
+            # Load LMS model
+            try:
+                print("Loading LMS model...")
+                requests.post(
+                    "http://framework-desktop.local:9247/lms/load",
+                    headers={"Content-Type": "application/json"},
+                    json={"model": "openai/gpt-oss-120b"},
+                )
+                print("LMS model loaded")
+            except Exception as e:
+                print(f"Failed to load LMS model (continuing anyway): {e}")
+
             print("Generating digest")
             source_options = {}
             if args.subreddits:
@@ -107,13 +107,14 @@ async def main():
         else:
             print("Skipping uploading")
     finally:
-        # Unload LMS model
-        try:
-            print("Unloading LMS model...")
-            requests.post("http://framework-desktop.local:9247/lms/unload")
-            print("LMS model unloaded")
-        except Exception as e:
-            print(f"Failed to unload LMS model (continuing anyway): {e}")
+        # Unload LMS model only if it was loaded (i.e., in --gen mode)
+        if args.gen:
+            try:
+                print("Unloading LMS model...")
+                requests.post("http://framework-desktop.local:9247/lms/unload")
+                print("LMS model unloaded")
+            except Exception as e:
+                print(f"Failed to unload LMS model (continuing anyway): {e}")
 
 
 if __name__ == "__main__":
