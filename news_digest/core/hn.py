@@ -174,7 +174,7 @@ def summarize_article(url, ai_config):
         elif vendor == "local":
             # Use local OpenAI-compatible endpoint
             endpoint = ai_config.get(
-                "endpoint", "http://localhost:1234/v1/chat/completions"
+                "endpoint", "http://framework-desktop.local:1234/v1/chat/completions"
             )
             model_name = ai_config.get("model", "openai/gpt-oss-120b")
 
