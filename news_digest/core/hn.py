@@ -2,6 +2,7 @@ import feedparser
 from datetime import datetime
 from time import mktime
 import urllib.request
+import urllib.error
 import json
 import google.generativeai as genai
 from bs4 import BeautifulSoup
@@ -153,9 +154,10 @@ def summarize_article(url, ai_config):
         req = urllib.request.Request(url, headers=headers)
         response = urllib.request.urlopen(req, timeout=10)
         html_content = response.read().decode("utf-8")
-
+        print(f"Article content length: {len(html_content)}")
         # Extract main content using BeautifulSoup
         text_content = extract_main_content(html_content)
+        print(f"Text content length: {len(text_content)}")
 
         # Truncate text if it's too long (context limit)
         if len(text_content) > 30000:
@@ -192,11 +194,13 @@ def summarize_article(url, ai_config):
             )
             response = urllib.request.urlopen(req, timeout=30)
             response_data = json.loads(response.read().decode("utf-8"))
-
             return response_data["choices"][0]["message"]["content"]
         else:
             return f"Unknown AI vendor: {vendor}"
 
+    except urllib.error.HTTPError as e:
+        print(f"HTTP error. Status: {e.status}, Reason: {e.reason}")
+        return f"HTTP error: {e}"
     except Exception as e:
         print(f"Error summarizing article {url}: {e}")
         return f"Error summarizing article: {str(e)}"
