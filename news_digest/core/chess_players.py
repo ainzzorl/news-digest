@@ -13,7 +13,7 @@ from botocore.exceptions import ClientError
 from news_digest.utils.util import is_running_in_lambda
 
 
-def gen_chess_players_digest(
+async def gen_chess_players_digest(
     config: Dict[str, Any],
     source_options: Optional[Dict[str, Any]] = None,
     global_config: Optional[Dict[str, Any]] = None,
@@ -43,7 +43,7 @@ def gen_chess_players_digest(
     for player in players:
         try:
             processed_game_ids = all_processed_games.get(player, [])
-            player_digest, current_game_ids = _gen_player_digest(
+            player_digest, current_game_ids = await _gen_player_digest(
                 config, player, processed_game_ids, s3_object_age
             )
             res += player_digest
@@ -123,7 +123,7 @@ def _has_new_ratings(
     return False
 
 
-def _gen_player_digest(
+async def _gen_player_digest(
     config: Dict[str, Any],
     player: str,
     processed_game_ids: List[str],
@@ -134,7 +134,7 @@ def _gen_player_digest(
     # If no, fetch it from https://www.365chess.com/players/<player>
     # Save it to local/365chess/<player>
 
-    player_info_html = _get_player_info(player)
+    player_info_html = await _get_player_info(player)
 
     # Extract player information
     ratings = _extract_chess_ratings(player_info_html)
@@ -370,7 +370,106 @@ def _extract_recent_games(
     return games
 
 
-def _get_player_info(player: str) -> str:
+async def _fetch_with_playwright(url: str, player_name: str) -> str:
+    """
+    Fetch player page using Playwright for JavaScript-rendered content.
+
+    Args:
+        url: URL to fetch
+        player_name: Player name for logging
+
+    Returns:
+        str: HTML content of the page
+
+    Raises:
+        Exception: If Playwright fails to fetch the page
+    """
+    try:
+        from playwright.async_api import (
+            async_playwright,
+            TimeoutError as PlaywrightTimeoutError,
+        )
+    except ImportError:
+        raise Exception(
+            "Playwright is not installed. Install with: pip install playwright && playwright install"
+        )
+
+    browser = None
+    try:
+        async with async_playwright() as p:
+            # Use chromium in headless mode
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context(
+                # Set a realistic user agent
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            page = await context.new_page()
+
+            # Try different loading strategies with increasing timeout
+            html_content = None
+
+            # Strategy 1: Try with 'domcontentloaded' (faster, less strict)
+            try:
+                print(
+                    f"Attempting to fetch {player_name} with Playwright (domcontentloaded strategy)..."
+                )
+                await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+
+                # Wait a bit for dynamic content to load
+                await page.wait_for_timeout(2000)
+
+                # Check if we have the main content
+                try:
+                    await page.wait_for_selector("table.table", timeout=5000)
+                    print(f"✓ Main content loaded for {player_name}")
+                except:
+                    print(
+                        f"⚠ Table not found immediately, but continuing anyway for {player_name}"
+                    )
+
+                html_content = await page.content()
+
+            except PlaywrightTimeoutError:
+                print(
+                    f"⚠ domcontentloaded strategy timed out for {player_name}, trying load strategy..."
+                )
+
+                # Strategy 2: Try with 'load' (waits for load event)
+                try:
+                    await page.goto(url, wait_until="load", timeout=60000)
+                    await page.wait_for_timeout(2000)
+                    html_content = await page.content()
+                    print(f"✓ Fetched with 'load' strategy for {player_name}")
+                except PlaywrightTimeoutError:
+                    # If even 'load' times out, just get whatever we have
+                    print(
+                        f"⚠ Load strategy also timed out for {player_name}, getting current content..."
+                    )
+                    html_content = await page.content()
+
+            # Clean up
+            await context.close()
+            await browser.close()
+
+            # Validate we got something useful
+            if not html_content or len(html_content) < 100:
+                raise Exception(
+                    f"Received empty or very short response ({len(html_content) if html_content else 0} chars)"
+                )
+
+            return html_content
+
+    except Exception as e:
+        # Make sure browser is closed even on error
+        if browser:
+            try:
+                await browser.close()
+            except:
+                pass
+        raise Exception(f"Playwright fetch failed: {str(e)}")
+
+
+async def _get_player_info(player: str) -> str:
     sanitized_player = player.replace(" ", "_")
 
     # Try to read from local cache first
@@ -382,12 +481,28 @@ def _get_player_info(player: str) -> str:
     url = f"https://www.365chess.com/players/{sanitized_player}"
     print(f"Fetching {player} from {url}")
 
-    # Add timeout and better error handling
-    response = requests.get(url, timeout=30)
-    response.raise_for_status()
+    html_content = None
+
+    # Try Playwright first
+    try:
+        html_content = await _fetch_with_playwright(url, player)
+        print(f"Successfully fetched {player} with Playwright")
+    except Exception as e:
+        print(f"Playwright failed for {player}: {str(e)}, falling back to requests")
+
+        # Fallback to requests
+        try:
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            html_content = response.text
+            print(f"Successfully fetched {player} with requests")
+        except Exception as req_e:
+            raise Exception(
+                f"Both Playwright and requests failed. Playwright: {str(e)}, Requests: {str(req_e)}"
+            )
 
     # Check if we got a valid response
-    if not response.text or len(response.text) < 100:
+    if not html_content or len(html_content) < 100:
         raise Exception(f"Received empty or very short response for {player}")
 
     time.sleep(1)  # Rate limiting
@@ -397,9 +512,9 @@ def _get_player_info(player: str) -> str:
         # Ensure directory exists
         os.makedirs("local/365chess", exist_ok=True)
         with open(f"local/365chess/{sanitized_player}", "w", encoding="utf-8") as f:
-            f.write(response.text)
+            f.write(html_content)
 
-    return response.text
+    return html_content
 
 
 def _get_rating_history(fide_id: str) -> Optional[List[Dict[str, Any]]]:
