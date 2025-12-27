@@ -374,9 +374,7 @@ def _get_player_info(player: str) -> str:
     sanitized_player = player.replace(" ", "_")
 
     # Try to read from local cache first
-    if not is_running_in_lambda() and os.path.exists(
-        f"local/365chess/{sanitized_player}"
-    ):
+    if not _is_prod() and os.path.exists(f"local/365chess/{sanitized_player}"):
         print(f"Reading {player} from local/365chess/{sanitized_player}")
         with open(f"local/365chess/{sanitized_player}", "r", encoding="utf-8") as f:
             return f.read()
@@ -395,7 +393,7 @@ def _get_player_info(player: str) -> str:
     time.sleep(1)  # Rate limiting
 
     # Try to save to local cache
-    if not is_running_in_lambda():
+    if not _is_prod():
         # Ensure directory exists
         os.makedirs("local/365chess", exist_ok=True)
         with open(f"local/365chess/{sanitized_player}", "w", encoding="utf-8") as f:
@@ -418,7 +416,7 @@ def _get_rating_history(fide_id: str) -> Optional[List[Dict[str, Any]]]:
 
     # Try to read from local cache first
     cache_file = f"local/rating_api/{fide_id}"
-    if not is_running_in_lambda() and os.path.exists(cache_file):
+    if not _is_prod() and os.path.exists(cache_file):
         print(f"Reading rating history for FIDE ID {fide_id} from {cache_file}")
         try:
             with open(cache_file, "r", encoding="utf-8") as f:
@@ -439,7 +437,7 @@ def _get_rating_history(fide_id: str) -> Optional[List[Dict[str, Any]]]:
             data = response.json()
             if isinstance(data, list):
                 # Try to save to local cache
-                if not is_running_in_lambda():
+                if not _is_prod():
                     try:
                         # Ensure directory exists
                         os.makedirs("local/rating_api", exist_ok=True)
@@ -701,3 +699,8 @@ def save_all_processed_games_to_s3(
     except Exception as e:
         print(f"ERROR: Failed to save processed games to S3: {str(e)}")
         return False
+
+
+def _is_prod():
+    #    return is_running_in_lambda()
+    return True

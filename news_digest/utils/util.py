@@ -20,5 +20,6 @@ def days_since_last_included_day(current_day, included_days):
         result = 7 - included_days[-1] + current_day
     return result
 
+
 def is_running_in_lambda() -> bool:
     return os.environ.get("AWS_LAMBDA_FUNCTION_NAME") is not None
