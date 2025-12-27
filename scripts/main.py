@@ -39,6 +39,11 @@ async def main():
         help="Comma-separated list of subreddits to include (only works with reddit source)",
     )
     parser.add_argument("--output", "-o", type=str, help="Output file path")
+    parser.add_argument(
+        "--skip-lms",
+        action="store_true",
+        help="Skip loading/unloading LMS model",
+    )
     args = parser.parse_args()
 
     try:
@@ -48,24 +53,29 @@ async def main():
 
         if args.gen:
             # Start LMS server
-            try:
-                print("Starting LMS server...")
-                requests.post("http://framework-desktop.local:9247/lms/server/start")
-                print("LMS server started")
-            except Exception as e:
-                print(f"Failed to start LMS server (continuing anyway): {e}")
+            if not args.skip_lms:
+                try:
+                    print("Starting LMS server...")
+                    requests.post(
+                        "http://framework-desktop.local:9247/lms/server/start"
+                    )
+                    print("LMS server started")
+                except Exception as e:
+                    print(f"Failed to start LMS server (continuing anyway): {e}")
 
-            # Load LMS model
-            try:
-                print("Loading LMS model...")
-                requests.post(
-                    "http://framework-desktop.local:9247/lms/load",
-                    headers={"Content-Type": "application/json"},
-                    json={"model": "openai/gpt-oss-120b"},
-                )
-                print("LMS model loaded")
-            except Exception as e:
-                print(f"Failed to load LMS model (continuing anyway): {e}")
+                # Load LMS model
+                try:
+                    print("Loading LMS model...")
+                    requests.post(
+                        "http://framework-desktop.local:9247/lms/load",
+                        headers={"Content-Type": "application/json"},
+                        json={"model": "openai/gpt-oss-120b"},
+                    )
+                    print("LMS model loaded")
+                except Exception as e:
+                    print(f"Failed to load LMS model (continuing anyway): {e}")
+            else:
+                print("Skipping LMS server start/load (--skip-lms flag set)")
 
             print("Generating digest")
             source_options = {}
@@ -107,8 +117,8 @@ async def main():
         else:
             print("Skipping uploading")
     finally:
-        # Unload LMS model only if it was loaded (i.e., in --gen mode)
-        if args.gen:
+        # Unload LMS model only if it was loaded (i.e., in --gen mode and not skipped)
+        if args.gen and not args.skip_lms:
             try:
                 print("Unloading LMS model...")
                 requests.post("http://framework-desktop.local:9247/lms/unload")
