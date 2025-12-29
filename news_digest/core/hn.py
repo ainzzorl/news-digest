@@ -4,6 +4,7 @@ from time import mktime
 import urllib.request
 import urllib.error
 import json
+import html
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 import re
@@ -41,7 +42,7 @@ def gen_hn_digest(config, source_options=None, global_config={}):
         )
     ]
 
-    digest = f"<h2>{config['name']} ({len(items)} item(s))</h2>\n\n"
+    digest = f"<h2>{html.escape(config['name'])} ({len(items)} item(s))</h2>\n\n"
 
     stories = [hn_item_to_html(config, item, global_config) for item in items]
     stories = [story.strip() + "\n<br>" for story in stories]
@@ -52,10 +53,10 @@ def gen_hn_digest(config, source_options=None, global_config={}):
 
 def hn_item_to_html(config, item, global_config={}):
     result = (
-        f"{item.title}\n<br>"
+        f"{html.escape(item.title)}\n<br>"
         + gen_href(item.link, item.link)
         + "\n<br>"
-        + f"{item.published}\n<br>"
+        + f"{html.escape(item.published)}\n<br>"
         + f"{item.description.strip()}"
     )
 
@@ -63,11 +64,11 @@ def hn_item_to_html(config, item, global_config={}):
     if "ai" in global_config and "vendor" in global_config["ai"]:
         summary = summarize_article(item.link, global_config["ai"])
         if summary:
-            result += f"<b>Summary:</b><br><br>{summary}\n\n<br><br>"
+            result += f"<b>Summary:</b><br><br>{html.escape(summary)}\n\n<br><br>"
 
     image_urls = "\n<br>".join(
         [
-            f"<img src='{link.href}'/>"
+            f"<img src='{html.escape(link.href, quote=True)}'/>"
             for link in item.links
             if link.type.startswith("image/")
         ]
@@ -87,6 +88,7 @@ def hn_item_to_html(config, item, global_config={}):
                 f"https://hacker-news.firebaseio.com/v0/item/{comment_id}.json"
             ).read()
             comment_json = json.loads(comment_content)
+            # per_comment_htmls.append(html.escape(comment_json["text"]))
             per_comment_htmls.append(comment_json["text"])
         comments_html += "<br><br>~~~~~~~~~~<br><br>\n".join(per_comment_htmls)
         comments_html += "<br>\n"
@@ -200,7 +202,7 @@ def summarize_article(url, ai_config):
 
     except urllib.error.HTTPError as e:
         print(f"HTTP error. Status: {e.status}, Reason: {e.reason}")
-        return f"HTTP error: {e}"
+        return f"HTTP error: {html.escape(str(e))}"
     except Exception as e:
         print(f"Error summarizing article {url}: {e}")
-        return f"Error summarizing article: {str(e)}"
+        return f"Error summarizing article: {html.escape(str(e))}"
