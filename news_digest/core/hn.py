@@ -52,9 +52,15 @@ def gen_hn_digest(config, source_options=None, global_config={}):
 
 
 def hn_item_to_html(config, item, global_config={}):
-    result = (
-        f"{html.escape(item.title)}\n<br>"
-        + gen_href(item.link, item.link)
+    comments_url = item.comments
+    story_id = comments_url.replace("https://news.ycombinator.com/item?id=", "")
+
+    # Create collapsible structure with title visible
+    title_html = f'<a href="javascript:void(0)" onclick="toggleElement(\'hn-item-{story_id}\')" style="cursor:pointer; text-decoration:none; font-weight:bold;">▶ {html.escape(item.title)}</a>\n<br>'
+
+    # All content goes in the collapsible div
+    content = (
+        gen_href(item.link, item.link)
         + "\n<br>"
         + f"{html.escape(item.published)}\n<br>"
         + f"{item.description.strip()}"
@@ -64,7 +70,7 @@ def hn_item_to_html(config, item, global_config={}):
     if "ai" in global_config and "vendor" in global_config["ai"]:
         summary = summarize_article(item.link, global_config["ai"])
         if summary:
-            result += f"<b>Summary:</b><br><br>{html.escape(summary)}\n\n<br><br>"
+            content += f"<b>Summary:</b><br><br>{html.escape(summary)}"
 
     image_urls = "\n<br>".join(
         [
@@ -73,10 +79,8 @@ def hn_item_to_html(config, item, global_config={}):
             if link.type.startswith("image/")
         ]
     )
-    comments_url = item.comments
-    story_id = comments_url.replace("https://news.ycombinator.com/item?id=", "")
 
-    comments_html = "<b>Top comments:</b><br><br>\n"
+    comments_html = "<br><br><b>Top comments:</b><br><br>\n"
     try:
         story_content = urllib.request.urlopen(
             f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json"
@@ -95,7 +99,11 @@ def hn_item_to_html(config, item, global_config={}):
 
     except Exception as e:
         print(f"Error processing story {story_id}: {e}")
-    return result + image_urls + comments_html
+
+    # Wrap content in collapsible div (hidden by default)
+    collapsible_content = f'<div id="hn-item-{story_id}" style="display:none; margin-left:20px;">{content + image_urls + comments_html}</div>'
+
+    return title_html + collapsible_content
 
 
 def extract_main_content(html_content):
